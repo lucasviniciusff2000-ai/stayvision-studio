@@ -1,60 +1,74 @@
-# StayVision Studio V1 — Etapa 2: pedidos demonstrativos na Railway
+# StayVision Studio V1 — Etapa 3: consulta ao Pix de produção (Railway)
 
-**Versão de homologação online, não pronta para clientes reais nem transações financeiras.**
+**Versão preparada para implantação. Não modifica sua conta Mercado Pago até você cadastrar
+`MP_PRODUCTION_ACCESS_TOKEN` na Railway. Nenhuma cobrança real pode ser iniciada por este pacote.**
 
-Preserva o visual V1 e adiciona o servidor privado de pedidos, upload de imagens de teste, acompanhamento, painel e central de operações. O checkout, tokens Mercado Pago e IA estão desativados no código desta distribuição.
+Este pacote atualiza a V1 já publicada e funcionando com pedidos demonstrativos, mantendo
+seu design, SQLite e arquivos em `/data`, painel e acompanhamento.
 
-## Antes de atualizar o GitHub
+## Antes de instalar
 
-1. **Faça backup** da versão local no Windows. Os dados antigos do Windows **não** migram automaticamente.
-2. Na Railway, abra o **mesmo serviço** do projeto Estúdio StayVision que já está ativo.
-3. Anexe **um Volume** a esse serviço (opção Volume / Add Volume ou menu de contexto do projeto), com `Mount Path` exatamente `/data`. O Railway Trial admite volumes, normalmente com **limite de 0,5 GB**. Fonte: https://docs.railway.com/volumes/reference
-4. Em **Variables** do mesmo serviço, cadastre (os exemplos abaixo não são senhas reais):
+- Confirme no Railway que existe um Volume montado em `/data`, que
+  `STAYVISION_DATA_DIR=/data`, e que a V1 anterior responde em `/api/health`.
+- Faça **backup/exportação dos pedidos e fotos** do volume antes de alterações maiores.
+  Não apague nem desmonte o volume. Seu conteúdo não está neste ZIP.
+- Mantenha `STAYVISION_ENABLE_DEMO_ORDERS=0` enquanto a integração comercial está em andamento.
+- Não cole chaves em GitHub, tickets, prints, ChatGPT ou no navegador.
 
-   | Nome | Valor |
-   |------|-------|
-   | `STAYVISION_DATA_DIR` | `/data` |
-   | `STAYVISION_PUBLIC_URL` | `https://truthful-embrace-production-c05b.up.railway.app` |
-   | `STAYVISION_ADMIN_USER` | usuário escolhido por você, de 3–30 caracteres alfanuméricos, `_` ou `-` |
-   | `STAYVISION_ADMIN_PASSWORD` | uma senha **única**, com **pelo menos 16 caracteres** |
-   | `STAYVISION_ENABLE_DEMO_ORDERS` | `0` (inicialmente) |
+## Atualizar GitHub
 
-   *Jamais coloque essas variáveis, senha ou chaves Mercado Pago no GitHub, em código ou em prints.*
+1. Extraia este ZIP em uma pasta.
+2. No repositório `lucasviniciusff2000-ai/stayvision-studio`, abra **Add file → Upload files**.
+3. Envie **os arquivos e a pasta `static`**, descompactados, na raiz do repositório.
+   Substitua `Dockerfile`, `server_online.py`, `README.md`, `static/painel.js` e `static/painel.html`.
+   **Novo arquivo obrigatório:** `payments_readiness.py`.
+4. Clique em **Commit changes**, aguarde o novo deploy na Railway e confira `Active`.
+5. Teste `https://truthful-embrace-production-c05b.up.railway.app/api/health`. Resultado esperado:
+   `{"ok":true,"mode":"pedidos_demo","payments":false}`.
+6. Verifique o login do `/painel` e um pedido antigo. A versão não altera dados de pedidos existentes.
 
-5. A Railway aplica alterações de variáveis/volume em implantações. Confirme as alterações na interface.
+## Cadastrar chave de produção — SEM habilitar pagamentos reais
 
-## Atualizar o repositório existente
+1. Railway → StayVision → serviço web → **Variables → New Variable**.
+2. **Nome:** `MP_PRODUCTION_ACCESS_TOKEN`.
+3. **Valor:** copie o Access Token na aba **Credenciais de produção** do Mercado Pago.
+   Não é a Public Key. Use o campo secreto de variável, não faça upload da chave em arquivo.
+4. Aplique as alterações e espere o serviço ficar `Active`.
+5. Abra `/painel` → **Configurações → Publicação e cobranças**.
+6. Clique em **Verificar Pix (produção — somente consulta)**.
+   O painel deve dizer se Pix consta na API. Isso **não garante** que o Pix aparecerá no Checkout Pro.
+7. Nunca habilite vendas reais só porque a API informou `Pix listado`.
 
-1. Extraia este ZIP no computador.
-2. Abra seu repositório `lucasviniciusff2000-ai/stayvision-studio`, aba **Code → Add file → Upload files**.
-3. Adicione os **arquivos e a pasta `static` extraídos** na raiz do repositório (mesmo nível do `Dockerfile`). Confirme a substituição dos arquivos antigos, se o GitHub pedir. Não envie o ZIP intacto.
-4. Faça **Commit changes** na branch conectada à Railway (`main`, se essa for a principal).
-5. Confira a aba **Deployments** da Railway. Se houver falha, veja os logs sem compartilhar variáveis privadas.
-6. Acesse `https://truthful-embrace-production-c05b.up.railway.app/api/health` e procure `{"ok": true, "mode": "pedidos_demo", "payments": false}`.
-7. Acesse `/painel` e faça login com `STAYVISION_ADMIN_USER` e `STAYVISION_ADMIN_PASSWORD` cadastrados em Variables. **Não existe cadastro público de administrador.**
+O endpoint autenticado `/api/admin/mp-readiness` também informa **somente booleanos**
+indicando se há credencial e HTTPS; ele não retorna chaves. O endpoint
+`/api/admin/pix-production-diagnostic` faz apenas um `GET /v1/payment_methods`.
 
-## Liberar apenas pedidos de DEMONSTRAÇÃO
+## O que ainda está desligado (intencionalmente)
 
-Quando login e armazenamento estiverem funcionando:
+- Checkout Pix/cartão reais e criação de preferência (`POST /checkout/preferences`).
+- Recebimento/processamento de webhooks e aprovação automática de pagamentos.
+- Ativação pública de vendas (formulário de demonstração fica desligado por padrão).
+- Serviço de geração de fotos/vídeos por IA.
 
-1. Em Railway → Variables, altere `STAYVISION_ENABLE_DEMO_ORDERS` para `1`.
-2. Salve, aplique/reimplante e recarregue o site.
-3. Use **somente fotos de demonstração** e informações fictícias para conferir o formulário e o painel. O site não gera cobrança e nenhum valor deve ser pago.
-4. Consulte `/painel` e `/operacoes`. O cliente pode acompanhar um pedido criado com o link privado.
-5. Se quiser interromper novos pedidos, defina `STAYVISION_ENABLE_DEMO_ORDERS=0` novamente.
+O módulo `payments_readiness.py` já inclui funções **offline, não ligadas a endpoints públicos**
+para conferir assinaturas HMAC de futuros webhooks e validar dados de pagamento
+(valor, moeda, referência, modo produção e recebedor) após consulta à API.
+Essas funções por si só **não** constituem um sistema de pagamento pronto.
+Antes de abrir vendas, implementar idempotência, reconciliação, tratamento de estornos,
+webhook em HTTPS, backups testados, proteção contra uploads abusivos, políticas LGPD
+e revisão da infraestrutura.
 
-## Segurança e limites
+Para webhooks do Mercado Pago, a chave secreta será obtida em
+**Mercado Pago Developers → sua aplicação → Webhooks → Configurar notificações**.
+Ela será usada em uma fase posterior, não é necessária agora.
 
-- Nenhuma senha, token financeiro, arquivo pessoal ou banco está incluído neste pacote.
-- Nenhum endpoint pode criar cobranças ou marcar pagamento como aprovado por conta própria. **Pix real ainda não foi conectado.**
-- Ao usar `/data`, os arquivos permanecem no Volume entre reinícios/deploys, mas **um Volume não substitui backup**, e os dados de Trial podem expirar quando o plano termina. Consulte https://docs.railway.com/pricing/free-trial e https://docs.railway.com/volumes.
-- Ao criar o volume, a Railway monta como root. Este contêiner executa o servidor como root para escrita no volume no ambiente demonstrativo. Para operar com fotos de clientes reais, realizar auditoria e endurecimento adicional e migrar para armazenamento/infra com princípio do menor privilégio.
-- Não habilitar vendas reais antes de concluir implantação de pagamentos, validação de webhook, política de privacidade, termos, proteção antiabuso, backups e testes de restauração.
-- Versão de teste pensada para **uma réplica** com SQLite. Arquivos de teste contam para o limite de armazenamento, e a API limita tamanho de imagens e taxa de pedidos.
+## Verificar localmente
 
-## Arquivos essenciais
+`python -m unittest -v test_online test_payments_readiness`
 
-- `Dockerfile` — configura o servidor Python na Railway.
-- `server_online.py` — backend de demonstração protegido, não usa Mercado Pago.
-- `static/` — visual original V1, área do cliente, painel e central de operações.
-- `test_online.py` — testes automatizados (`python -m unittest -v test_online`, sem bibliotecas extras).
+Bibliotecas externas: nenhuma. Python 3.12. 
+
+Referências oficiais:
+- https://www.mercadopago.com.br/developers/pt/docs/checkout-pro-preferences/create-payment-preference
+- https://www.mercadopago.com.br/developers/pt/docs/checkout-pro-preferences/payment-notifications
+- https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-pro-preferences/overview

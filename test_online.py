@@ -105,6 +105,28 @@ class ServerTests(unittest.TestCase):
         with mod.connection() as db:
             self.assertEqual(db.execute('SELECT payment_status FROM orders WHERE id=?',(order['id'],)).fetchone()[0],'nao_iniciado')
 
+    def test_production_pix_diagnostic_is_admin_only_and_read_only(self):
+        with patch.dict(os.environ, {'MP_PRODUCTION_ACCESS_TOKEN':'TOP_PRIVATE_TOKEN'}):
+            code,body,_=self.request('/api/admin/pix-production-diagnostic')
+            self.assertEqual(code,401)
+            data=json.dumps({'username':'stayowner','password':'long-demo-strong-pass-EXAMPLE'}).encode()
+            code,body,headers=self.request('/api/admin/login','POST',data,{'Content-Type':'application/json'})
+            self.assertEqual(code,200)
+            cookie=headers['Set-Cookie'].split(';')[0]
+            with patch.object(mod,'check_pix_production_availability',return_value={'pix_listed':True,'charges_created':False}) as check:
+                code,body,_=self.request('/api/admin/pix-production-diagnostic',headers={'Cookie':cookie})
+                self.assertEqual(code,200,body)
+                check.assert_called_once()
+                self.assertTrue(json.loads(body)['pix_listed'])
+                self.assertNotIn(b'TOP_PRIVATE_TOKEN',body)
+            code,body,_=self.request('/api/admin/mp-readiness',headers={'Cookie':cookie})
+            self.assertEqual(code,200)
+            self.assertTrue(json.loads(body)['production_token_configured'])
+            self.assertFalse(json.loads(body)['checkout_enabled'])
+            self.assertNotIn(b'TOP_PRIVATE_TOKEN',body)
+            code,body,_=self.request('/api/client/checkout','POST',b'{}',{'Content-Type':'application/json','Cookie':cookie})
+            self.assertEqual(code,403)
+
     def test_railway_volume_guard(self):
         with patch.dict(os.environ, {'RAILWAY_ENVIRONMENT_NAME':'production','RAILWAY_VOLUME_MOUNT_PATH':'/not-correct'}):
             with self.assertRaises(RuntimeError): mod.ensure_online_storage()

@@ -24,6 +24,7 @@ from email.policy import default as email_policy
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from payments_readiness import pix_production_report, config_report, ReadinessError
 
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / 'static'
@@ -320,43 +321,13 @@ def check_pix_test_availability():
 
 
 def prod_credential_configured():
-    return False  # nem leitura de credenciais financeiras na fase de pedidos online
+    # Credencial usada SOMENTE para consultas GET protegidas pelo login admin.
+    return bool(os.getenv('MP_PRODUCTION_ACCESS_TOKEN', '').strip())
 
 
 def check_pix_production_availability():
-    """Somente GET: consulta metodos do vendedor, nunca cria pagamentos reais."""
-    if not prod_credential_configured():
-        raise ValueError('Credencial de PRODuCAO nao configurada. Execute CONFIGURAR_PIX_PRODUCAO.bat e reinicie a StayVision.')
-    token = os.environ['MP_PRODUCTION_ACCESS_TOKEN']
-    request = urllib.request.Request(
-        'https://api.mercadopago.com/v1/payment_methods',
-        method='GET',
-        headers={'Authorization': 'Bearer ' + token, 'Accept': 'application/json'})
-    try:
-        with urllib.request.urlopen(request, timeout=14) as response:
-            methods = json.loads(response.read(2 * 1024 * 1024))
-    except urllib.error.HTTPError as exc:
-        # Nao retornar corpo da API nem informacoes da credencial.
-        raise ValueError('Consulta de producao recusada pelo Mercado Pago (HTTP %s). Verifique as credenciais.' % exc.code) from None
-    except (urllib.error.URLError, TimeoutError) as exc:
-        raise ValueError('Nao foi possivel conectar ao Mercado Pago. Verifique a internet e tente novamente.') from None
-    except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
-        raise ValueError('Resposta invalida do Mercado Pago durante a consulta.') from None
-    if not isinstance(methods, list):
-        raise ValueError('O Mercado Pago retornou dados inesperados na consulta de meios de pagamento.')
-    pix_methods = [m for m in methods if isinstance(m, dict) and
-        (str(m.get('id', '')).lower() == 'pix' or
-         (str(m.get('payment_type_id', '')).lower() == 'bank_transfer' and
-          'pix' in str(m.get('name', '')).lower()))]
-    return {
-        'environment': 'producao',
-        'pix_listed': bool(pix_methods),
-        'checkout_guaranteed': False,
-        'charges_created': False,
-        'message': ('Pix consta na lista da API para esta credencial de producao. Isso NAO garante sua exibicao no checkout.'
-                    if pix_methods else
-                    'Pix nao consta na lista retornada para esta credencial de producao. Consulte o suporte Mercado Pago para verificar habilitacao.')
-    }
+    # Nao utiliza a credencial para criar preferencia, cobrar, atualizar pedidos ou enviar Pix.
+    return pix_production_report()
 
 
 def valid_mp_checkout_url(url):
@@ -519,18 +490,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, check_pix_test_availability())
             except ValueError as exc:
                 return self.fail(502, str(exc))
+        if path == '/api/admin/mp-readiness':
+            if not self.require_admin(): return
+            return self.send(200, config_report())
         if path == '/api/admin/pix-production-diagnostic':
             if not self.require_admin(): return
             if not prod_credential_configured():
-                return self.fail(409, 'Credencial de producao ausente. Execute CONFIGURAR_PIX_PRODUCAO.bat, salve e reinicie a StayVision.')
+                return self.fail(409, 'Credencial de producao ausente. Configure MP_PRODUCTION_ACCESS_TOKEN nas variaveis privadas da Railway.')
             try:
                 return self.send(200, check_pix_production_availability())
-            except ValueError as exc:
+            except ReadinessError as exc:
                 return self.fail(502, str(exc))
         if path == '/api/admin/settings':
             if not self.require_admin(): return
             return self.send(200, {**settings_public(),'mercadopago_ready':False,
-                                   'public_url':bool(os.getenv('STAYVISION_PUBLIC_URL')), 'payment_environment':'desativado', 'pix_production_diagnostic_ready':False})
+                                   'public_url':bool(os.getenv('STAYVISION_PUBLIC_URL')), 'payment_environment':'desativado', 'pix_production_diagnostic_ready':prod_credential_configured()})
         match = re.fullmatch(r'/api/admin/orders/([A-Z0-9-]+)', path)
         if match:
             if not self.require_admin(): return

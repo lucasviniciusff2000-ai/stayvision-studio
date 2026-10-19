@@ -19,6 +19,7 @@ class WebhookDiagnosticTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        mod.ATTEMPTS.clear()
         cls.tmp=tempfile.TemporaryDirectory()
         mod.DATA=Path(cls.tmp.name)
         mod.UPLOADS=mod.DATA/'uploads'

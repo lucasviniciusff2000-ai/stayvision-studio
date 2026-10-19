@@ -53,8 +53,9 @@ $('#webhook-diagnostic-btn').addEventListener('click', async()=>{
    const latest=x.recent_events?.[0];
    output.textContent=(x.webhook_secret_configured?'Chave de webhook configurada. ':'Chave de webhook ainda NÃO configurada. ')+
     'Notificações autenticadas recebidas: '+x.events_received+'. '+
-    (latest?'Última: '+latest.received_at+' — '+latest.event_type+'. ':'')+
-    'Nenhuma alteração de status de pagamento foi realizada.';
+    (latest?'Última: '+latest.received_at+' — '+latest.event_type+' ('+latest.result+'). ':'')+
+    'Consultas com validação completa (somente observação): '+(x.reconciliation?.verified_readonly??0)+'. '+
+    'O checkout segue desativado. Nenhuma alteração de pagamento foi realizada.';
  }catch(e){output.textContent='Falha na consulta: '+e.message;}
 });
 $('#settings-form').addEventListener('submit',async e=>{e.preventDefault();if(!settings)return;try{let plans=settings.plans.map(p=>({...p,price:Number($('#price-'+p.code).value)}));await api('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plans,brand_name:$('#brand-setting').value,contact_whatsapp:$('#whatsapp-setting').value})});$('#settings-feedback').textContent='Configurações salvas. Atualize o site para ver os valores.';await loadSettings();}catch(err){$('#settings-feedback').textContent=err.message;}});

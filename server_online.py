@@ -25,6 +25,7 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from payments_readiness import pix_production_report, config_report, ReadinessError
+from payment_reconciliation import fetch_payment, review_payment, PaymentLookupUnavailable, audit_summary
 
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / 'static'
@@ -513,7 +514,9 @@ class Handler(BaseHTTPRequestHandler):
                 count = db.execute('SELECT COUNT(*) FROM mp_webhook_audit').fetchone()[0]
             return self.send(200, {'webhook_secret_configured': bool(os.getenv('MP_WEBHOOK_SECRET','').strip()),
                 'events_received': count,'recent_events':rows,'checkout_enabled':False,
-                'orders_approved_from_webhooks':False,'mode':'diagnostico_apenas'})
+                'orders_approved_from_webhooks':False,'mode':'consulta_readonly',
+                'reconciliation':audit_summary(rows),
+                'collector_configured':bool(re.fullmatch(r'[0-9]{1,30}', os.getenv('MP_PRODUCTION_COLLECTOR_ID','')))})
         if path == '/api/admin/settings':
             if not self.require_admin(): return
             return self.send(200, {**settings_public(),'mercadopago_ready':False,
@@ -597,19 +600,44 @@ class Handler(BaseHTTPRequestHandler):
             return self.fail(400, 'Identificador divergente.')
         if not str(body.get('action','')).startswith('payment.'):
             return self.fail(400, 'Ação inválida.')
-        # Persist ONLY notification receipt metadata. Ignore raw body and payer data.
-        # Do not call payment APIs or approve orders at this stage.
+        # Duplicatas são idempotentes (nenhuma consulta desnecessária).
+        with connection() as db:
+            existing = db.execute('SELECT result FROM mp_webhook_audit WHERE request_id=?',
+                                  (reqid[:128],)).fetchone()
+        if existing:
+            return self.send(200, {'ok':True,'already_recorded':True,'payment_updated':False})
+        # O simulador pode enviar IDs sem pagamento real: 404 é um diagnóstico,
+        # nunca aprovação. A API externa é fonte autoritativa, não o webhook.
+        if os.getenv('MP_PRODUCTION_ACCESS_TOKEN', '').strip():
+            try:
+                remote_payment = fetch_payment(pid)
+            except PaymentLookupUnavailable:
+                # 503 permite reenvio posterior quando a API falhar.
+                return self.fail(503, 'Consulta de pagamento temporariamente indisponível.')
+            order = None
+            if remote_payment and re.fullmatch(r'SV-[A-Z0-9-]{5,40}',
+                    str(remote_payment.get('external_reference',''))):
+                with connection() as db:
+                    rec = db.execute('SELECT id, price, preference_id FROM orders WHERE id=?',
+                              (str(remote_payment['external_reference']),)).fetchone()
+                if rec: order=dict(rec)
+            result = review_payment(remote_payment, order,
+                    collector_id=os.getenv('MP_PRODUCTION_COLLECTOR_ID',''))
+        else:
+            result = 'assinatura_validada_sem_consulta'
+        # Somente auditoria. Não alterar orders, jobs, entregas nem cobranças.
         with connection() as db:
             db.execute('''INSERT OR IGNORE INTO mp_webhook_audit
                 (request_id,received_at,event_type,payment_id,result) VALUES(?,?,?,?,?)''',
-                (reqid[:128],now(),str(body['action'])[:50],pid,'assinatura_validada_sem_cobranca'))
-        return self.send(200, {'ok':True,'accepted_for_diagnostics':True,'payment_updated':False})
+                (reqid[:128],now(),str(body['action'])[:50],pid,result))
+        return self.send(200, {'ok':True,'accepted_for_diagnostics':True,
+                               'payment_updated':False,'reconciliation_recorded':True})
 
     def do_POST(self):
         path = urllib.parse.urlsplit(self.path).path
         # Mercado Pago server-to-server requests have no browser Origin header.
-        # This endpoint authenticates ONLY with the configured webhook HMAC secret.
-        # It NEVER initiates a charge or changes orders' payment_status.
+        # HMAC obrigatório; API GET de pagamento caso token de produção esteja configurado.
+        # Jamais inicia uma cobrança ou altera pagamento do pedido.
         if path == '/api/mp/webhook':
             return self.mp_webhook_diagnostic()
         if not self.origin_ok(): return self.fail(403,'Origem inválida.')

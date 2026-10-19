@@ -1,57 +1,45 @@
-# StayVision V1 — Etapa 4: teste de recebimento de webhooks (Railway)
+# StayVision Studio V1 — Etapa 5: conferir pagamentos sem criar cobranças
 
-**NOVO: monitoramento de notificações do Mercado Pago. NENHUMA COBRANÇA REAL é criada.
-Nenhum pedido é marcado como pago por esta versão.**
+**Objetivo:** consultar o pagamento diretamente no Mercado Pago após receber um webhook autenticado, comparar o resultado com os pedidos existentes e exibir uma auditoria privada no painel. Esta é uma **etapa de observação**, não de cobrança ou baixa financeira.
 
-Esta é uma atualização incremental da Etapa 3: mantém o visual V1, o volume `/data`, pedidos,
-links de acompanhamento, login administrativo e diagnóstico Pix de produção.
+## Proteções
 
-## Atualizar o GitHub (preservando pedidos)
+- O Checkout Pro **real permanece desativado**: `/api/client/checkout` e `/api/admin/verify-payment` respondem 403.
+- A variável `STAYVISION_ENABLE_DEMO_ORDERS` deve continuar em `0` até você decidir testar pedidos fictícios novamente.
+- Nenhum pedido muda para `pago`, `recusado` ou `estornado`; nenhum arquivo é liberado a partir dos webhooks.
+- A verificação consulta exclusivamente `GET https://api.mercadopago.com/v1/payments/{id}` com o Access Token de produção no **servidor**, após validar a assinatura HMAC.
+- Os dados do comprador não são guardados no histórico da conferência; apenas o ID técnico do recurso e um resultado de auditoria privado.
+- Falhas temporárias da API devolvem 503 para permitir novo envio; IDs fictícios/inexistentes ficam registrados como `pagamento_nao_encontrado`.
+- A API pode devolver `status=approved`, mas isso **não é suficiente** para marcar o pedido como pago. O sistema ainda exige referência, preço exato, BRL, modo de produção, vendedor certo e preferência vinculada ao pedido. Esta versão não cria preferências reais.
+- Todos os arquivos de dados e fotografias anteriores permanecem no volume Railway em `/data`. Não apague ou substitua o volume. Faça backup antes de implantar.
 
-1. Verifique que o serviço está `Active`, que o volume `/data` está montado e que fez backup dos dados.
-2. Faça upload para seu repositório do conteúdo extraído deste ZIP na raiz,
-   preservando `Dockerfile`, `server_online.py`, `payments_readiness.py`, `static/`.
-3. **NUNCA** envie `.env`, tokens, banco de dados ou fotos de clientes ao GitHub.
-4. Faça commit, espere Railway `Active` e confira `/api/health`: `payments` deve continuar `false`.
-5. Mantenha `STAYVISION_ENABLE_DEMO_ORDERS=0`.
-6. Os pedidos e arquivos já salvos no volume `/data` não são substituídos por esse pacote.
+## Instalação na Railway
 
-## Configurar notificações no Mercado Pago — sem criar cobrança
+1. Faça backup do volume `/data` e confira que a versão anterior funciona.
+2. Extraia o ZIP e atualize o repositório `stayvision-studio` com o **conteúdo** do ZIP (arquivos na raiz), preservando `Dockerfile`, `server_online.py`, `payments_readiness.py`, **`payment_reconciliation.py`**, `static/`, etc.
+3. Não envie `.env`, tokens, dados, senhas ou fotos privadas ao GitHub.
+4. O `Dockerfile` inclui o módulo `payment_reconciliation.py`.
+5. Espere Railway ficar `Active` e verifique `/api/health`: `payments` deve continuar `false`.
+6. Confirme que as variáveis existentes continuam configuradas diretamente na Railway: `MP_PRODUCTION_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `STAYVISION_DATA_DIR=/data`, `STAYVISION_ADMIN_USER`, `STAYVISION_ADMIN_PASSWORD`, `STAYVISION_PUBLIC_URL`.
+7. Opcional para auditoria de destinatário: `MP_PRODUCTION_COLLECTOR_ID` deve ser o **ID de vendedor de produção** da sua conta. Se não souber, não chute: o relatório continuará cauteloso (`id_vendedor_nao_configurado`). **Não use User ID de teste.**
+8. Mantenha `STAYVISION_ENABLE_DEMO_ORDERS=0`. Não crie variáveis para liberar cobranças reais; esta versão não tem essa função.
 
-1. Mercado Pago Developers → aplicação StayVision Studio → **Webhooks** → configurar.
-2. Na aba **Modo produtivo**, configurar URL HTTPS:
+## Teste seguro
 
-   `https://truthful-embrace-production-c05b.up.railway.app/api/mp/webhook`
+1. No Mercado Pago Developers, na aplicação StayVision Studio, deixe configurado o webhook de **Pagamentos** para `https://truthful-embrace-production-c05b.up.railway.app/api/mp/webhook` e a chave secreta correta na Railway.
+2. Use **Simular notificações** com um ID de pagamento **fictício**, sem executar transação.
+3. No painel StayVision → Configurações → **Notificações Mercado Pago — conferência somente leitura** → Atualizar diagnóstico. Um ID que não existe deve aparecer como `pagamento_nao_encontrado`.
+4. O contador de notificações recebidas sobe, mas nenhum pedido muda de situação financeira. Se a API ficar temporariamente indisponível, poderá haver resposta 503: aguarde ou reenvie a simulação.
+5. Nos testes, **não use IDs reais de pagamentos de clientes** nem habilite checkout real para validar esta etapa.
 
-3. Marcar somente o evento **Pagamentos** e salvar.
-4. O Mercado Pago mostrará uma **chave secreta do webhook**. Na Railway → serviço → Variables,
-   cadastrar `MP_WEBHOOK_SECRET` com essa chave. Não revelar nem enviar ao GitHub.
-5. Aplicar e aguardar Active. O status admin mostra apenas se a chave existe (não seu valor).
-6. No Mercado Pago → Webhooks → **Simular**. Selecionar o evento **payment** e inserir
-   um Data ID numérico fictício (apenas para teste de entrega). Enviar simulação.
-7. No painel StayVision → **Configurações → Notificações Mercado Pago** → clicar em
-   "Atualizar diagnóstico de notificações". Deve contar uma notificação autenticada.
-   Se o simulador gerar cabeçalhos ou parâmetros diferentes, consulte o status e os logs;
-   não altere nem compartilhe tokens ou segredos para tentar contornar a validação.
+## Próxima etapa ainda pendente
 
-A notificação só é aceita quando `x-signature` e `x-request-id` validam
-`data.id` pela chave secreta. É gravado um registro mínimo e idempotente em `/data`.
-O código **não busca pagamentos, não valida valor, não marca pedido como pago e não cria Pix**.
+Criar preferências reais no backend, vinculá-las a cada pedido, proteger o fluxo de retorno e a conciliação/baixa idempotente, realizar uma compra controlada autorizada e validar Pix/cartão. Somente depois disso liberar produção e entrega. Esta versão não está pronta para receber pagamento real de clientes.
 
-### Controles de segurança
+## Testes locais
 
-- Por padrão, nenhuma cobrança é autorizada, mesmo com credencial de produção configurada.
-- Endpoints de checkout real e verificação de pagamento continuam bloqueados (`403`).
-- Sem chave de webhook cadastrada o endpoint de notificação não funciona (`503`).
-- Cabeçalhos HMAC inválidos geram `401`. Reenvios de mesmo `x-request-id` não duplicam registros.
-- Nenhuma informação pessoal do pagamento é salva; apenas momento, tipo de evento, ID da notificação
-  (internamente) e identificador do recurso.
-- A validação de recebimento não prova que o pagamento foi aprovado. Isso exigirá consultar a
-  API de pagamentos e confrontar valor, moeda, referência e destinatário, em fase posterior.
-- Antes de ativar vendas: testar backup/restauração, limites contra abuso e requisitos de privacidade.
+```bash
+python -m unittest -v test_online test_payments_readiness test_webhook_diagnostic test_reconciliation
+```
 
-### Testes
-
-`python -m unittest -v test_online test_payments_readiness test_webhook_diagnostic`
-
-Referência oficial: https://www.mercadopago.com.br/developers/pt/docs/checkout-pro-preferences/payment-notifications
+Documentação oficial: https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-pro-preferences/get-payment/get

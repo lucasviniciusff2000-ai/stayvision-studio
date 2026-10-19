@@ -18,6 +18,7 @@ mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
 class ServerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        mod.ATTEMPTS.clear()
         cls.tmp=tempfile.TemporaryDirectory()
         mod.DATA=Path(cls.tmp.name);mod.UPLOADS=mod.DATA/'uploads';mod.DELIVERIES=mod.DATA/'entregas';mod.DB=mod.DATA/'data.sqlite'
         cls.env=patch.dict(os.environ,{

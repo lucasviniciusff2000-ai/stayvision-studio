@@ -4,6 +4,7 @@ WORKDIR /app
 COPY server_online.py /app/server_online.py
 COPY payments_readiness.py /app/payments_readiness.py
 COPY payment_reconciliation.py /app/payment_reconciliation.py
+COPY checkout_production.py /app/checkout_production.py
 COPY static /app/static
 # Os Volumes da Railway sao montados pelo usuario root; arquivos persistem em /data.
 # Nunca inclua tokens, .env, banco ou fotos reais na imagem.

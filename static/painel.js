@@ -59,6 +59,28 @@ $('#webhook-diagnostic-btn').addEventListener('click', async()=>{
  }catch(e){output.textContent='Falha na consulta: '+e.message;}
 });
 $('#settings-form').addEventListener('submit',async e=>{e.preventDefault();if(!settings)return;try{let plans=settings.plans.map(p=>({...p,price:Number($('#price-'+p.code).value)}));await api('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plans,brand_name:$('#brand-setting').value,contact_whatsapp:$('#whatsapp-setting').value})});$('#settings-feedback').textContent='Configurações salvas. Atualize o site para ver os valores.';await loadSettings();}catch(err){$('#settings-feedback').textContent=err.message;}});
+async function checkCheckoutReadiness(){
+ const el=$('#checkout-readiness-status');
+ try{
+  const x=await api('/api/admin/checkout-readiness');
+  el.textContent=(x.mode==='locked'?'Checkout real BLOQUEADO. ':'Modo restrito configurado; verifique as autorizações. ')+
+   (x.production_token_present?'Token de produção cadastrado. ':'Token de produção ausente. ')+
+   (x.collector_id_configured?'ID do vendedor configurado. ':'ID do vendedor ainda não configurado. ')+
+   'Venda pública: NÃO. Não criar pagamentos a partir desta tela.';
+ }catch(e){el.textContent='Diagnóstico indisponível: '+e.message;}
+}
+$('#checkout-dryrun-btn').addEventListener('click',async()=>{
+ const el=$('#checkout-dryrun-result'),id=$('#checkout-dryrun-id').value.trim().toUpperCase();
+ if(!/^SV-[A-Z0-9-]{5,40}$/.test(id)){el.textContent='Informe um código válido de pedido Photo.';return;}
+ el.textContent='Validando em modo de simulação...';
+ try{
+  const x=await api('/api/admin/checkout-preview?id='+encodeURIComponent(id));
+  el.textContent='Prévia sem cobrança: '+x.order_id+' · Plano Photo · R$ '+x.amount_brl+
+   ' · Preferência existente: '+(x.preference_linked?'sim':'não')+
+   ' · Checkout restrito: '+(x.checkout_locked?'BLOQUEADO':'aguardando autorização')+
+   '. Nenhuma cobrança foi criada.';
+ }catch(e){el.textContent='Prévia não realizada: '+e.message;}
+});
 $('#save-payment-toggle').addEventListener('click',async()=>{
  if(!settings?.mercadopago_ready)return;
  let payment=$('#payment-toggle').checked,sales=$('#sales-toggle').checked;
@@ -78,7 +100,7 @@ function editLead(id){let l=leads.find(x=>x.id===id);if(!l)return;currentLeadId=
 $('#lead-form').addEventListener('submit',async e=>{e.preventDefault();let payload={id:currentLeadId};for(let key of ['name','phone','segment','city','source','stage','notes'])payload[key]=$('#lead-'+key).value;try{await api('/api/admin/lead',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});resetLead();await loadLeads();$('#lead-feedback').textContent='Contato salvo com sucesso.';}catch(err){$('#lead-feedback').textContent=err.message;}});
 $('#lead-reset').addEventListener('click',resetLead);$('#leads-refresh').addEventListener('click',loadLeads);$('#lead-search').addEventListener('input',renderLeads);
 $('#lead-csv').addEventListener('click',()=>{let cols=['name','phone','segment','city','source','stage','notes','created_at'];let csv=[cols.join(';'),...leads.map(l=>cols.map(c=>{let val=String(l[c]||'');if(/^[=+@-]/.test(val))val="'"+val;return '"'+val.replace(/"/g,'""')+'"';}).join(';'))].join('\r\n');let blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='stayvision_contatos.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
-start().catch(e=>{console.error(e);showLogin();$('#auth-feedback').textContent=e.message;});
+start().then(checkCheckoutReadiness).catch(e=>{console.error(e);showLogin();$('#auth-feedback').textContent=e.message;});
 
 // StayVision Railway: nenhuma venda real e nenhum registro manual de pagamentos nesta etapa.
 $('#pix-diagnostic-btn').disabled=true; // Teste de Pix continua desligado na Railway; produção permite apenas GET.

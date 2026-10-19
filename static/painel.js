@@ -131,7 +131,10 @@ $('#seller-verify-btn').addEventListener('click',async()=>{
  btn.disabled=true;out.textContent='Verificando o ID da conta com o Mercado Pago, sem criar preferência...';
  try{
   const x=await api('/api/admin/seller-identity');
+  const configured=String(x.configured_id_suffix||'').replace(/[^0-9]/g,'').slice(-4);
+  const owner=String(x.token_owner_id_suffix||'').replace(/[^0-9]/g,'').slice(-4);
   out.textContent=(x.verified?'IDENTIDADE CONFIRMADA. ':'ATENÇÃO: IDENTIDADE DIVERGENTE. ')+x.message+
+   (configured&&owner?' ID configurado termina em: '+configured+'. ID reconhecido pelo token termina em: '+owner+'.':'')+
    ' Checkout real continua bloqueado; nenhuma cobrança criada.';
  }catch(e){out.textContent='Identidade NÃO confirmada: '+e.message+' Não desbloqueie o checkout.';}
  finally{btn.disabled=false;}

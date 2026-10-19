@@ -46,3 +46,8 @@ python -m unittest -q test_online test_payments_readiness test_webhook_diagnosti
 Documentação oficial: https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/resources/credentials?scope=prod
 
 > Nota: esta é uma integração de pré-lançamento. Antes de vendas públicas, ainda serão necessários teste controlado do Checkout Pro e do Pix, confirmação automática, revisão de segurança e fluxos de reembolso. Esta atualização não executa essas etapas por conta própria.
+
+
+## Atualização 8.1 — diagnóstico na própria tela
+
+O botão existente **Confirmar identidade da conta vendedora** agora exibe também os últimos quatro dígitos do ID configurado na Railway e do ID reconhecido pelo Access Token. Não é necessário abrir `/api/admin/seller-identity` em outra aba, pois isso pode não compartilhar os cookies de sessão. A alteração é apenas em `static/painel.js` e não altera o servidor nem as regras de bloqueio de pagamento. Após o deploy, atualize a aba do painel com Ctrl+Shift+R.

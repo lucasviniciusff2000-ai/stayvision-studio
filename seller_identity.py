@@ -15,7 +15,7 @@ class SellerIdentityError(ValueError):
     pass
 
 
-def check_seller_identity():
+def check_seller_identity(*, show_full_id=False):
     token = os.getenv('MP_PRODUCTION_ACCESS_TOKEN', '').strip()
     expected = os.getenv('MP_PRODUCTION_COLLECTOR_ID', '').strip()
     if not token:
@@ -36,7 +36,7 @@ def check_seller_identity():
         raise SellerIdentityError('Resposta de identificação inesperada. Checkout permanece bloqueado.')
     actual = str(data['id'])
     match = actual == expected
-    return {'verified':match,
+    result = {'verified':match,
             'status':'vendedor_confirmado' if match else 'vendedor_divergente',
             'configured_id_suffix':expected[-4:], 'token_owner_id_suffix':actual[-4:],
             'read_only':True,'preference_created':False,'payment_created':False,
@@ -44,6 +44,11 @@ def check_seller_identity():
             'message':('Identidade confirmada: o ID configurado pertence à conta identificada pelo token de produção.'
                        if match else
                        'DIVERGÊNCIA: o ID configurado não corresponde à conta identificada pelo token. Não desbloqueie o checkout.')}
+    # Somente a rota administrativa explicita solicita este identificador completo.
+    # O token e quaisquer dados pessoais nunca entram na resposta.
+    if show_full_id:
+        result['token_owner_id_full'] = actual
+    return result
 
 
 def require_seller_identity():

@@ -139,6 +139,30 @@ $('#seller-verify-btn').addEventListener('click',async()=>{
  }catch(e){out.textContent='Identidade NÃO confirmada: '+e.message+' Não desbloqueie o checkout.';}
  finally{btn.disabled=false;}
 });
+// Consulta explícita e autenticada do ID da conta, sem token e sem criar cobranças.
+$('#seller-reveal-id-btn').addEventListener('click',async()=>{
+ const btn=$('#seller-reveal-id-btn'),out=$('#seller-full-id-feedback'),area=$('#seller-full-id-area'),field=$('#seller-full-id');
+ area.hidden=true;field.value='';btn.disabled=true;out.textContent='Consultando identidade diretamente no Mercado Pago...';
+ try{
+  const x=await api('/api/admin/seller-identity-full');
+  const id=String(x.token_owner_id_full||'');
+  if(!/^[0-9]{1,30}$/.test(id))throw Error('A API não retornou um identificador numérico válido.');
+  field.value=id;area.hidden=false;
+  out.textContent=(x.verified?'O ID já coincide com o cadastro. ':'O ID é diferente do cadastro atual. ')+
+    'Confira que a conta de produção é sua antes de substituir o valor de MP_PRODUCTION_COLLECTOR_ID. Nenhuma cobrança foi criada.';
+ }catch(e){out.textContent='Não foi possível obter o ID: '+e.message+' Checkout permanece bloqueado.';}
+ finally{btn.disabled=false;}
+});
+$('#seller-copy-id-btn').addEventListener('click',async()=>{
+ const field=$('#seller-full-id'),feedback=$('#seller-full-id-feedback');
+ if(!/^[0-9]{1,30}$/.test(field.value))return;
+ try{await navigator.clipboard.writeText(field.value);feedback.textContent='ID copiado. Cole SOMENTE no valor de MP_PRODUCTION_COLLECTOR_ID na Railway.';}
+ catch(e){field.focus();field.select();feedback.textContent='Selecione e copie o número do campo manualmente (Ctrl+C).';}
+});
+$('#seller-hide-id-btn').addEventListener('click',()=>{
+ $('#seller-full-id').value='';$('#seller-full-id-area').hidden=true;
+ $('#seller-full-id-feedback').textContent='ID ocultado. Checkout continua bloqueado.';
+});
 $('#save-payment-toggle').addEventListener('click',async()=>{
  if(!settings?.mercadopago_ready)return;
  let payment=$('#payment-toggle').checked,sales=$('#sales-toggle').checked;

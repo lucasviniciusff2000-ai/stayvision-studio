@@ -559,6 +559,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200,check_seller_identity())
             except SellerIdentityError as exc:
                 return self.fail(502,str(exc))
+        if path == '/api/admin/seller-identity-full':
+            # Diagnóstico explicitamente solicitado, privado e somente leitura.
+            # Não inclui Access Token, e-mail ou outros dados da conta na resposta.
+            if not self.require_admin(): return
+            if not rate_ok(('admin-seller-identity-full',self.client_address[0]),3,3600):
+                return self.fail(429,'Limite de consultas do ID completo atingido. Aguarde uma hora.')
+            try:
+                return self.send(200,check_seller_identity(show_full_id=True))
+            except SellerIdentityError as exc:
+                return self.fail(502,str(exc))
         if path == '/api/admin/checkout-preview':
             if not self.require_admin(): return
             oid=q.get('id',[''])[0]

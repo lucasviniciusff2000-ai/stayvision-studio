@@ -51,3 +51,27 @@ Documentação oficial: https://www.mercadopago.com.br/developers/pt/docs/checko
 ## Atualização 8.1 — diagnóstico na própria tela
 
 O botão existente **Confirmar identidade da conta vendedora** agora exibe também os últimos quatro dígitos do ID configurado na Railway e do ID reconhecido pelo Access Token. Não é necessário abrir `/api/admin/seller-identity` em outra aba, pois isso pode não compartilhar os cookies de sessão. A alteração é apenas em `static/painel.js` e não altera o servidor nem as regras de bloqueio de pagamento. Após o deploy, atualize a aba do painel com Ctrl+Shift+R.
+
+## Atualização 8.2 — recuperar o Collector ID sem expor o token
+
+**Objetivo:** mostrar, dentro do painel autenticado, o ID *numérico completo* retornado pela API de identidade da conta de produção. Corrige a confusão entre o Client ID da aplicação (terminava em 2305 na configuração anterior) e o ID do vendedor (na consulta anterior, terminava em 8501).
+
+**Essa atualização não cria cobranças nem modifica os valores na Railway.** A consulta usa somente GET e continua exigindo sessão administrativa. O ID completo só é retornado ao pedir explicitamente, até 3 vezes por hora por origem. Não retorna Access Token, senha, nome ou e-mail. A resposta usa `Cache-Control: no-store`.
+
+### Instalação
+
+1. Mantenha `STAYVISION_MP_CHECKOUT_MODE=locked` e `STAYVISION_ENABLE_DEMO_ORDERS=0`; não habilite vendas.
+2. Baixe e extraia este pacote completo. Substitua os arquivos correspondentes na **raiz** do repositório GitHub `stayvision-studio`. Envie o conteúdo da pasta `static`, e **nunca** envie `.env`, senhas, tokens ou a pasta `/data`.
+3. Aguarde o status **Active** na Railway. O volume `/data` e as variáveis existentes devem permanecer intactos.
+4. Entre no painel, em **Configurações → Etapa 8**, e clique em **Consultar ID completo da conta (somente leitura)**. É preciso estar autenticado no próprio painel — não abra uma URL de API em outra aba.
+5. Confira que a conta Mercado Pago conectada é sua. Clique em **Copiar ID** e edite somente o **valor** de `MP_PRODUCTION_COLLECTOR_ID` na aba Variables da Railway. **Não** altere o nome da variável nem use o Client ID da aplicação.
+6. Volte ao painel depois que a Railway estiver **Active** e clique em **Confirmar identidade da conta vendedora**. O resultado esperado é `IDENTIDADE CONFIRMADA`. Mantenha o checkout bloqueado mesmo após a confirmação.
+7. Clique em **Ocultar** para limpar o número mostrado no navegador. Não envie esse ID em captura de tela e não envie tokens ou Client Secret ao chat.
+
+Se as credenciais de produção já apareceram num PDF com texto embutido, renove **todas as credenciais sensíveis que ficaram expostas**, incluindo Client Secret, conforme orientações oficiais do Mercado Pago.
+
+Testes locais, sem acesso à conta real:
+
+```bash
+python -m unittest -q test_online test_payments_readiness test_webhook_diagnostic test_reconciliation test_checkout_stage6 test_checkout_stage7 test_seller_stage8 test_seller_stage8_2
+```

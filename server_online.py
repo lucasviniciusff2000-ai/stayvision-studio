@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""StayVision V1 Etapa 6: produção preparada, checkout real BLOQUEADO por padrão."""
+"""StayVision V1 Etapa 7: checkout restrito com confirmação explícita; bloqueado por padrão."""
 import argparse
 import base64
 import datetime as dt
@@ -540,11 +540,12 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_admin(): return
             return self.send(200, {'mode':'locked' if os.getenv('STAYVISION_MP_CHECKOUT_MODE','locked')!='restricted' else 'restricted',
                 'orders_publicly_open':False,'checkout_real_enabled':False,
+                'single_order_gate_ready':production_gate(os.getenv('STAYVISION_MP_ALLOWED_ORDER_ID','')), 
                 'production_token_present':prod_credential_configured(),
                 'collector_id_configured':bool(re.fullmatch(r'[0-9]{1,30}',os.getenv('MP_PRODUCTION_COLLECTOR_ID',''))),
                 'webhook_secret_configured':bool(os.getenv('MP_WEBHOOK_SECRET','').strip()),
                 'auto_confirm_enabled':False if os.getenv('STAYVISION_MP_AUTO_CONFIRM','0')!='1' else True,
-                'message':'Checkout de produção bloqueado por padrão. Somente prévia sem cobrança disponível.'})
+                'message':'A criação real permanece bloqueada até autorizar um único pedido nas variáveis privadas e confirmar por escrito no painel.'})
         if path == '/api/admin/checkout-preview':
             if not self.require_admin(): return
             oid=q.get('id',[''])[0]
@@ -561,6 +562,30 @@ class Handler(BaseHTTPRequestHandler):
                     'payment_methods':'Definidos pelo Mercado Pago; Pix nao garantido no checkout',
                     'return_host':urllib.parse.urlsplit(payload['back_urls']['success']).hostname})
             except CheckoutError as exc: return self.fail(409,str(exc))
+        if path == '/api/admin/checkout-observe':
+            if not self.require_admin(): return
+            oid=q.get('id',[''])[0]
+            pid=q.get('payment_id',[''])[0]
+            if not re.fullmatch(r'SV-[A-Z0-9-]{5,40}',oid) or not re.fullmatch(r'[0-9]{1,30}',pid):
+                return self.fail(400,'Pedido ou identificador do pagamento inválido.')
+            if not rate_ok(('admin-payment-inspect',self.client_address[0]),15,3600):
+                return self.fail(429,'Limite de consultas excedido.')
+            with connection() as db:
+                order=db.execute('SELECT id,price,preference_id,plan_code,payment_status FROM orders WHERE id=?',(oid,)).fetchone()
+                registry=db.execute('SELECT stage,preference_id,payment_id FROM mp_checkout_registry WHERE order_id=?',(oid,)).fetchone()
+            if not order or not registry or registry['stage']!='ready' or registry['preference_id']!=order['preference_id']:
+                return self.fail(409,'Não há preferência própria válida vinculada a esse pedido.')
+            try:
+                payment=fetch_payment(pid)
+            except PaymentLookupUnavailable:
+                return self.fail(502,'Não foi possível consultar o pagamento; tente novamente mais tarde.')
+            result=review_payment(payment,dict(order),collector_id=os.getenv('MP_PRODUCTION_COLLECTOR_ID',''))
+            if registry['payment_id'] and registry['payment_id']!=pid:
+                result='pagamento_ja_vinculado_a_outro_id'
+            return self.send(200,{'order_id':oid,'payment_id':pid,'result':result,
+                'payment_status':payment.get('status','') if payment else 'nao_encontrado',
+                'order_payment_status':order['payment_status'],'updated':False,
+                'message':'Consulta somente leitura. Não libera produção nem confirma pedido.'})
         if path == '/api/admin/mp-readiness':
             if not self.require_admin(): return
             return self.send(200, config_report())
@@ -695,7 +720,7 @@ class Handler(BaseHTTPRequestHandler):
                     collector_id=os.getenv('MP_PRODUCTION_COLLECTOR_ID',''))
         else:
             result = 'assinatura_validada_sem_consulta'
-        # Etapa 6: liquidação estritamente condicionada a uma preferência emitida
+        # Etapa 7: liquidação estritamente condicionada a uma preferência emitida
         # pelo próprio backend e a habilitação explícita. Por padrão, NÃO baixa.
         payment_updated=False
         if result == 'aprovado_validado_sem_baixa' and remote_payment is not None:
@@ -724,8 +749,19 @@ class Handler(BaseHTTPRequestHandler):
                 if not re.fullmatch(r'SV-[A-Z0-9-]{5,40}',oid): return self.fail(400,'Pedido inválido.')
                 if not rate_ok(('admin-checkout',self.client_address[0]),3,3600):
                     return self.fail(429,'Limite de testes atingido.')
+                # Financial endpoints require a real browser Origin matching the public site,
+                # JSON content-type and a distinct acknowledgement. Admin cookies alone are
+                # not sufficient to initiate a live preference.
+                if self.headers.get('Origin','') != os.getenv('STAYVISION_PUBLIC_URL','').rstrip('/'):
+                    return self.fail(403,'Origem obrigatória e deve corresponder à StayVision.')
+                if self.headers.get('Content-Type','').split(';')[0].strip().lower() != 'application/json':
+                    return self.fail(415,'Envie JSON nesta operação.')
+                if self.headers.get('X-StayVision-Checkout-Intent','') != 'single-real-test':
+                    return self.fail(403,'Confirmação técnica ausente.')
+                if payload.get('confirmation') != 'AUTORIZO PIX REAL '+oid+' R$49':
+                    return self.fail(403,'Digite exatamente a autorização exibida no painel para este pedido.')
                 if not production_gate(oid):
-                    return self.fail(403,'Checkout real bloqueado. Esta versão não pode cobrar sem autorização explícita.')
+                    return self.fail(403,'Checkout real bloqueado nas variáveis da Railway. Nenhuma preferência criada.')
                 try:
                     result=stage_checkout(oid)
                     return self.send(200,{'ok':True,'created':not result['reused'],

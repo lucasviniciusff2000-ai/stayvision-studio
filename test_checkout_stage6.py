@@ -147,7 +147,9 @@ class CheckoutHttp(unittest.TestCase):
         with mod.connection() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM mp_checkout_registry').fetchone()[0],0)
     def test_whitelist_dry_issuance_with_mock_and_idempotency(self):
-        admin={'Cookie':self.auth(),'Content-Type':'application/json'}
+        admin={'Cookie':self.auth(),'Content-Type':'application/json',
+               'Origin':'https://sample.up.railway.app',
+               'X-StayVision-Checkout-Intent':'single-real-test'}
         flags={'STAYVISION_MP_CHECKOUT_MODE':'restricted','STAYVISION_MP_ALLOWED_ORDER_ID':OID,
              'STAYVISION_MP_REAL_TEST_AUTHORIZATION':'EXPLICIT_SINGLE_ORDER_TEST'}
         def fake_post(order,*,idempotency_key):
@@ -155,9 +157,9 @@ class CheckoutHttp(unittest.TestCase):
             self.assertEqual(len(idempotency_key),40)
             return {'preference_id':PREF,'checkout_url':URL}
         with patch.dict(os.environ,flags),patch.object(mod,'create_preference',side_effect=fake_post) as post:
-            code,obj=self.req('/api/admin/checkout-create','POST',json.dumps({'id':OID}).encode(),admin)
+            code,obj=self.req('/api/admin/checkout-create','POST',json.dumps({'id':OID,'confirmation':'AUTORIZO PIX REAL '+OID+' R$49'}).encode(),admin)
             self.assertEqual(code,200,obj);self.assertTrue(obj['created'])
-            code,obj=self.req('/api/admin/checkout-create','POST',json.dumps({'id':OID}).encode(),admin)
+            code,obj=self.req('/api/admin/checkout-create','POST',json.dumps({'id':OID,'confirmation':'AUTORIZO PIX REAL '+OID+' R$49'}).encode(),admin)
             self.assertEqual(code,200,obj);self.assertFalse(obj['created']);post.assert_called_once()
         with mod.connection() as db:
             row=db.execute('SELECT * FROM orders WHERE id=?',(OID,)).fetchone()
@@ -168,13 +170,15 @@ class CheckoutHttp(unittest.TestCase):
         self.assertFalse(obj['checkout_available'])
         self.assertEqual(obj['order']['payment_url'],'')
     def test_failed_creation_never_retries_unconfirmed_network_call(self):
-        admin={'Cookie':self.auth(),'Content-Type':'application/json'}
+        admin={'Cookie':self.auth(),'Content-Type':'application/json',
+               'Origin':'https://sample.up.railway.app',
+               'X-StayVision-Checkout-Intent':'single-real-test'}
         flags={'STAYVISION_MP_CHECKOUT_MODE':'restricted','STAYVISION_MP_ALLOWED_ORDER_ID':OID,
                'STAYVISION_MP_REAL_TEST_AUTHORIZATION':'EXPLICIT_SINGLE_ORDER_TEST'}
         with patch.dict(os.environ,flags),patch.object(mod,'create_preference',side_effect=checkout.CheckoutError('Rede indisponível')) as post:
-            code,obj=self.req('/api/admin/checkout-create','POST',json.dumps({'id':OID}).encode(),admin)
+            code,obj=self.req('/api/admin/checkout-create','POST',json.dumps({'id':OID,'confirmation':'AUTORIZO PIX REAL '+OID+' R$49'}).encode(),admin)
             self.assertEqual(code,409,obj)
-            code,obj=self.req('/api/admin/checkout-create','POST',json.dumps({'id':OID}).encode(),admin)
+            code,obj=self.req('/api/admin/checkout-create','POST',json.dumps({'id':OID,'confirmation':'AUTORIZO PIX REAL '+OID+' R$49'}).encode(),admin)
             self.assertEqual(code,409,obj)
             post.assert_called_once()
         with mod.connection() as db:

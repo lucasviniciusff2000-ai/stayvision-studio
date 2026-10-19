@@ -81,6 +81,51 @@ $('#checkout-dryrun-btn').addEventListener('click',async()=>{
    '. Nenhuma cobrança foi criada.';
  }catch(e){el.textContent='Prévia não realizada: '+e.message;}
 });
+async function stage7Readiness(){
+ const status=$('#stage7-status'),btn=$('#stage7-create');
+ try{
+  const x=await api('/api/admin/checkout-readiness');
+  const ready=!!x.single_order_gate_ready;
+  status.textContent=ready?'Autorização de pedido único detectada. Confirme antes de criar link real.':'BLOQUEADO: modo restrito e autorização por pedido ainda não foram habilitados nas variáveis privadas.';
+  btn.disabled=!ready;
+ }catch(e){status.textContent='Diagnóstico indisponível: '+e.message;btn.disabled=true;}
+}
+$('#stage7-order-id').addEventListener('input',()=>{
+ const id=$('#stage7-order-id').value.trim().toUpperCase();
+ $('#stage7-confirm').placeholder=/^SV-[A-Z0-9-]{5,40}$/.test(id)?'AUTORIZO PIX REAL '+id+' R$49':'AUTORIZO PIX REAL SV-... R$49';
+ $('#stage7-link-area').hidden=true;
+});
+$('#stage7-create').addEventListener('click',async()=>{
+ const id=$('#stage7-order-id').value.trim().toUpperCase(),out=$('#stage7-result');
+ $('#stage7-link-area').hidden=true;
+ if(!/^SV-[A-Z0-9-]{5,40}$/.test(id)){out.textContent='Informe o pedido Photo autorizado.';return;}
+ if(!$('#stage7-understand').checked){out.textContent='Confirme que compreende que será gerado um link de pagamento real.';return;}
+ if($('#stage7-confirm').value.trim()!=='AUTORIZO PIX REAL '+id+' R$49'){
+  out.textContent='Digite a autorização exata para este pedido. Isso não habilita cobranças sozinho.';return;
+ }
+ const go=window.confirm('Criar uma preferência REAL de R$ 49 para '+id+'? Apenas um pedido autorizado. Ainda NÃO paga automaticamente.');
+ if(!go){out.textContent='Operação cancelada. Nenhuma solicitação de cobrança enviada.';return;}
+ const btn=$('#stage7-create');btn.disabled=true;out.textContent='Solicitando preferência restrita ao Mercado Pago...';
+ try{
+  const x=await api('/api/admin/checkout-create',{method:'POST',headers:{'Content-Type':'application/json','X-StayVision-Checkout-Intent':'single-real-test'},
+   body:JSON.stringify({id,confirmation:$('#stage7-confirm').value.trim()})});
+  out.textContent=(x.created?'Preferência criada. ':'Preferência já existente, reutilizada. ')+
+   'Atenção: R$ 49, dinheiro REAL se o link for pago. Código de preferência: '+x.preference_id+'.';
+  const a=$('#stage7-link');a.href=x.url;$('#stage7-link-area').hidden=false;
+ }catch(e){out.textContent='Link NÃO disponibilizado: '+e.message;}finally{await stage7Readiness();}
+});
+$('#stage7-check-payment').addEventListener('click',async()=>{
+ const out=$('#stage7-payment-result'),oid=$('#stage7-order-id').value.trim().toUpperCase(),pid=$('#stage7-payment-id').value.trim();
+ if(!/^SV-[A-Z0-9-]{5,40}$/.test(oid)|| !/^[0-9]{1,30}$/.test(pid)){
+  out.textContent='Informe um código de pedido válido e o ID numérico de um pagamento.';return;
+ }
+ out.textContent='Consultando status oficial do Mercado Pago...';
+ try{
+  const x=await api('/api/admin/checkout-observe?id='+encodeURIComponent(oid)+'&payment_id='+encodeURIComponent(pid));
+  out.textContent='Pedido '+x.order_id+' | Pagamento '+x.payment_id+' | API: '+x.payment_status+
+   ' | Conferência: '+x.result+' | Status StayVision: '+x.order_payment_status+'. Nenhuma alteração automática por esta consulta.';
+ }catch(e){out.textContent='Não foi possível conferir: '+e.message;}
+});
 $('#save-payment-toggle').addEventListener('click',async()=>{
  if(!settings?.mercadopago_ready)return;
  let payment=$('#payment-toggle').checked,sales=$('#sales-toggle').checked;
@@ -100,7 +145,7 @@ function editLead(id){let l=leads.find(x=>x.id===id);if(!l)return;currentLeadId=
 $('#lead-form').addEventListener('submit',async e=>{e.preventDefault();let payload={id:currentLeadId};for(let key of ['name','phone','segment','city','source','stage','notes'])payload[key]=$('#lead-'+key).value;try{await api('/api/admin/lead',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});resetLead();await loadLeads();$('#lead-feedback').textContent='Contato salvo com sucesso.';}catch(err){$('#lead-feedback').textContent=err.message;}});
 $('#lead-reset').addEventListener('click',resetLead);$('#leads-refresh').addEventListener('click',loadLeads);$('#lead-search').addEventListener('input',renderLeads);
 $('#lead-csv').addEventListener('click',()=>{let cols=['name','phone','segment','city','source','stage','notes','created_at'];let csv=[cols.join(';'),...leads.map(l=>cols.map(c=>{let val=String(l[c]||'');if(/^[=+@-]/.test(val))val="'"+val;return '"'+val.replace(/"/g,'""')+'"';}).join(';'))].join('\r\n');let blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='stayvision_contatos.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
-start().then(checkCheckoutReadiness).catch(e=>{console.error(e);showLogin();$('#auth-feedback').textContent=e.message;});
+start().then(()=>Promise.all([checkCheckoutReadiness(),stage7Readiness()])).catch(e=>{console.error(e);showLogin();$('#auth-feedback').textContent=e.message;});
 
 // StayVision Railway: nenhuma venda real e nenhum registro manual de pagamentos nesta etapa.
 $('#pix-diagnostic-btn').disabled=true; // Teste de Pix continua desligado na Railway; produção permite apenas GET.

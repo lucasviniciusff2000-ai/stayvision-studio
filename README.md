@@ -1,52 +1,56 @@
-# StayVision Studio V1 — Etapa 6: Checkout Pro restrito (prévia SEM cobranças)
+# StayVision Studio V1 — Etapa 7: checkout real restrito, sem vendas públicas
 
-Esta versão evolui a Etapa 5 e mantém o **visual original da StayVision V1**. O novo código prepara a criação de uma preferência real de Checkout Pro para **um único pedido Photo de R$ 49**, mas **a criação está bloqueada por padrão**. Nenhuma compra, Pix ou movimentação financeira real é feita ao instalar este pacote.
+Esta versão mantém o **visual da StayVision V1**, o painel, os pedidos e os arquivos de imagem já existentes. Prepara a geração de **um link de Checkout Pro de produção** somente para um pedido Photo de **R$ 49**, depois de autorização específica do administrador. **A instalação, por si só, não cria preferências, QR Codes, Pix ou cobranças.**
 
-## Recursos implementados
+## O que foi acrescentado
 
-- Prévia administrativa de checkout vinculada a um pedido Photo existente — **não chama a API de cobranças**.
-- Módulo `checkout_production.py`: payload de preferência com item de R$ 49, `external_reference` do pedido, retorno ao site por HTTPS e webhook. Não inclui dados privados de acompanhamento nos links de retorno.
-- Registro `mp_checkout_registry` no SQLite, com reserva idempotente por pedido. Se uma criação real tiver resultado incerto, **o servidor não tenta criar novamente automaticamente**.
-- Endpoint administrativo de criação de preferência protegido por senha, limite de requisições e **quatro travas de autorização**, desativadas por padrão. O site público **não recebe links de checkout real** nesta etapa.
-- Código de conciliação de pagamento aprovado com validação da referência, preferência emitida pelo servidor, valor BRL exato, vendedor, `live_mode` e repetição de evento. A baixa automática também fica **desativada por padrão**.
-- Tela de retorno que avisa que o redirecionamento do navegador **não comprova pagamento**.
-- O webhook assinado e a consulta à API do Mercado Pago seguem ativos para **diagnósticos**, como na Etapa 5.
-- Produção por IA, pagamentos reais públicos e liberação automática de arquivos **não estão disponíveis**.
+- Área **Etapa 7 — Teste real RESTRITO** dentro de **Painel → Configurações**.
+- O botão de gerar link permanece **desabilitado** enquanto a autorização de pedido único não for configurada deliberadamente no servidor.
+- Para gerar link de um pedido autorizado, o administrador precisará fazer login, informar código do pedido, marcar a confirmação, digitar a frase específica do pedido e confirmar uma segunda vez no navegador.
+- Requisições financeiras exigem `Origin` HTTPS da StayVision, cabeçalho adicional e autorização explícita; tentativas sem isso são rejeitadas.
+- **Um único registro de preferência por pedido**. Diante de erro de rede ambíguo, não repete automaticamente a criação.
+- Consulta administrativa **somente leitura** de um identificador real de pagamento vinculado ao pedido. Ela confere a resposta da API, mas **não altera status nem libera arquivos**.
+- Código da confirmação automática de pagamentos segue condicionado a autorização separada; o modo padrão é **desligado**.
+- O checkout **público** permanece desativado e não expõe links reais aos visitantes.
 
-## Instalação segura na Railway
+## Instalar SEM ativar pagamentos reais
 
-1. **Não apague o volume `/data`.** Antes de atualizar, faça backup dos dados importantes da Railway. No plano de teste limitado, não considere o volume como backup definitivo.
-2. Extraia o ZIP e envie **o conteúdo da pasta extraída, não o ZIP**, ao repositório GitHub conectado ao projeto Railway, preservando a estrutura. Confira especialmente `Dockerfile`, `server_online.py`, `checkout_production.py`, `payment_reconciliation.py`, `payments_readiness.py` e `static/`.
-3. **Não envie** tokens, `.env`, banco de dados, senhas ou fotos privadas ao GitHub.
-4. Aguarde o deploy Railway ficar **Active**. Confira `https://truthful-embrace-production-c05b.up.railway.app/api/health` — o servidor deve responder com `ok:true`, `mode:pedidos_demo`, `payments:false`.
-5. Mantenha `STAYVISION_ENABLE_DEMO_ORDERS=0` e suas variáveis já existentes (`STAYVISION_DATA_DIR=/data`, `STAYVISION_PUBLIC_URL`, usuário e senha do admin, `MP_PRODUCTION_ACCESS_TOKEN` e `MP_WEBHOOK_SECRET`).
-6. **Não crie nem altere variáveis de habilitação de checkout real.** O estado seguro padrão é `STAYVISION_MP_CHECKOUT_MODE=locked` e `STAYVISION_MP_AUTO_CONFIRM=0` (não é necessário criá-las na Railway).
-7. Entre em `/painel` → **Configurações** → **Etapa 6 — Preparação de checkout real restrito**.
-8. Confira a mensagem **“Checkout real BLOQUEADO”**. Digite **o código de um pedido Photo fictício já cadastrado** e clique em **“Validar pedido sem criar cobrança”**.
-9. Esperado: `Prévia sem cobrança ... Checkout restrito: BLOQUEADO. Nenhuma cobrança foi criada.`
+1. Faça um backup confiável dos dados atuais, especialmente dos pedidos e das fotos no volume `/data`. O plano Railway Trial não equivale a backup.
+2. Extraia o ZIP e envie os **arquivos dentro dele**, mantendo `Dockerfile`, `server_online.py`, `checkout_production.py`, `payment_reconciliation.py`, `payments_readiness.py` e a pasta `static/`, ao repositório GitHub conectado à Railway.
+3. Não envie os dados do volume, credenciais, `.env`, senhas ou fotografias privadas ao GitHub.
+4. Aguarde o deploy ficar **Active** e abra `/api/health`: resposta esperada `ok: true`, `mode: "pedidos_demo"`, `payments: false`.
+5. Entre no painel em `https://truthful-embrace-production-c05b.up.railway.app/painel` → **Configurações → Etapa 7**.
+6. A situação segura normal é **BLOQUEADO** e **Gerar link restrito** desabilitado.
+7. Verifique se os pedidos antigos e o painel continuam acessíveis e se as imagens de teste continuam disponíveis.
 
-Se o navegador mostrar informações antigas, recarregue com `Ctrl + Shift + R`. Nenhum pedido antigo é apagado pela migração do banco: ela somente cria a nova tabela `mp_checkout_registry`, se não existir. Faça backup mesmo assim.
+**Por enquanto, mantenha estas variáveis:**
 
-## O que NÃO fazer nesta etapa
-
-- Não ativar vendas públicas, não divulgar links de cobrança, não inserir a Public Key ou Access Token no frontend e não enviar tokens no chat.
-- Não criar uma cobrança real nem testar Pix com dinheiro real ainda. O Pix consta na API de produção da conta, mas **isso não garante que será apresentado no checkout**.
-- Não habilitar o mecanismo de baixa automática sem antes validar um pagamento real controlado com autorização explícita, inclusive fluxo de cancelamento/estorno.
-- Não oferecer tours 3D com entrega automática antes de integrar e validar a ferramenta de produção.
-
-## Informações para a futura prova de pagamento (não configurar agora)
-
-A criação real de preferência só funciona se forem habilitadas em conjunto, de forma intencional, variáveis privadas adicionais de acesso restrito, uma whitelist do código do pedido e a identificação confirmada do vendedor de produção. O servidor nunca habilita pagamentos por um botão público. Essa ativação deve ser feita **somente depois de uma autorização explícita para o teste com dinheiro real**, quando também verificaremos o fluxo de volta, recebimento de webhook, consulta oficial, cancelamento e estorno.
-
-## Testes locais
-
-```bash
-python -m unittest -v test_online test_payments_readiness test_webhook_diagnostic test_reconciliation test_checkout_stage6
+```text
+STAYVISION_ENABLE_DEMO_ORDERS=0
+STAYVISION_MP_CHECKOUT_MODE=locked
+STAYVISION_MP_AUTO_CONFIRM=0
 ```
 
-42 testes automatizados passaram no ambiente de desenvolvimento, todos **sem acesso real à API de cobranças**. Os testes de POST real usam mocks, não criam pagamentos. Os testes e o deploy não substituem uma revisão de segurança profissional antes da operação comercial.
+As duas últimas podem ser **omitidas**: esses são os valores padrão. **Não crie nem altere variáveis de desbloqueio de checkout nesta instalação.** Os tokens de produção existentes ficam privados na Railway; a versão não os exibe no navegador.
 
-Documentação oficial do Mercado Pago:
-- https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-pro-preferences/overview
+## Antes de um teste real de Pix (NÃO fazer nesta instalação)
+
+Será necessária **autorização explícita e específica** para gerar uma preferência em produção de R$ 49 para um pedido previamente criado com dados e imagens fictícias. Após a autorização, conferiremos primeiro o código desse pedido, o ID do vendedor no Mercado Pago, a disponibilidade de estorno e os limites operacionais, antes de habilitar temporariamente as travas na Railway. O ato de abrir e pagar o link poderá movimentar dinheiro de verdade. A aparência do Pix no Checkout Pro **não está garantida**, mesmo aparecendo na lista de meios da API.
+
+A URL de retorno do navegador não comprova pagamento. O servidor deve consultar o pagamento na API oficial, verificando `status`, `live_mode`, moeda, valor, pedido, vendedor e preferência. A confirmação automática de pedido permanecerá desligada até validarmos esse fluxo.
+
+## Testes automatizados (offline)
+
+```bash
+python -m unittest -q test_online test_payments_readiness test_webhook_diagnostic test_reconciliation test_checkout_stage6 test_checkout_stage7
+```
+
+**52 testes aprovados** localmente, incluindo tentativas sem `Origin` correto, confirmação ausente e leitura do pagamento sem alterar o pedido. As chamadas que poderiam criar preferências são simuladas nos testes; **nenhum pagamento real foi criado** durante o desenvolvimento.
+
+Documentação oficial:
+
 - https://www.mercadopago.com.br/developers/pt/docs/checkout-pro-preferences/create-payment-preference
 - https://www.mercadopago.com.br/developers/pt/docs/checkout-pro-preferences/payment-notifications
+- https://www.mercadopago.com.br/developers/pt/docs/checkout-pro-preferences/configure-back-urls
+
+> Aviso: trata-se de integração pré-lançamento. Faça revisão de segurança e testes operacionais, incluindo reembolsos e divergências, antes de abrir vendas públicas ou usar fotos de clientes reais.

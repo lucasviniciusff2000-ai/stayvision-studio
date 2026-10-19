@@ -67,7 +67,7 @@ class CheckoutFunctions(unittest.TestCase):
              'STAYVISION_MP_REAL_TEST_AUTHORIZATION':'EXPLICIT_SINGLE_ORDER_TEST',
              'MP_PRODUCTION_COLLECTOR_ID':'999','MP_WEBHOOK_SECRET':'fake-secret',
              'MP_PRODUCTION_ACCESS_TOKEN':'DUMMY-TOKEN','STAYVISION_PUBLIC_URL':'https://sample.up.railway.app'}
-        with patch.dict(os.environ,env),patch.object(checkout.urllib.request,'urlopen',side_effect=fake_urlopen):
+        with patch.dict(os.environ,env),patch('checkout_production.require_seller_identity',return_value=True),patch.object(checkout.urllib.request,'urlopen',side_effect=fake_urlopen):
             output=checkout.create_preference(self.order(),idempotency_key='a'*40)
         self.assertEqual(output['preference_id'],PREF)
         self.assertEqual(len(seen),1)
@@ -156,7 +156,7 @@ class CheckoutHttp(unittest.TestCase):
             self.assertEqual(order['id'],OID)
             self.assertEqual(len(idempotency_key),40)
             return {'preference_id':PREF,'checkout_url':URL}
-        with patch.dict(os.environ,flags),patch.object(mod,'create_preference',side_effect=fake_post) as post:
+        with patch.dict(os.environ,flags),patch.object(mod,'require_seller_identity',return_value=True),patch.object(mod,'create_preference',side_effect=fake_post) as post:
             code,obj=self.req('/api/admin/checkout-create','POST',json.dumps({'id':OID,'confirmation':'AUTORIZO PIX REAL '+OID+' R$49'}).encode(),admin)
             self.assertEqual(code,200,obj);self.assertTrue(obj['created'])
             code,obj=self.req('/api/admin/checkout-create','POST',json.dumps({'id':OID,'confirmation':'AUTORIZO PIX REAL '+OID+' R$49'}).encode(),admin)
@@ -175,7 +175,7 @@ class CheckoutHttp(unittest.TestCase):
                'X-StayVision-Checkout-Intent':'single-real-test'}
         flags={'STAYVISION_MP_CHECKOUT_MODE':'restricted','STAYVISION_MP_ALLOWED_ORDER_ID':OID,
                'STAYVISION_MP_REAL_TEST_AUTHORIZATION':'EXPLICIT_SINGLE_ORDER_TEST'}
-        with patch.dict(os.environ,flags),patch.object(mod,'create_preference',side_effect=checkout.CheckoutError('Rede indisponível')) as post:
+        with patch.dict(os.environ,flags),patch.object(mod,'require_seller_identity',return_value=True),patch.object(mod,'create_preference',side_effect=checkout.CheckoutError('Rede indisponível')) as post:
             code,obj=self.req('/api/admin/checkout-create','POST',json.dumps({'id':OID,'confirmation':'AUTORIZO PIX REAL '+OID+' R$49'}).encode(),admin)
             self.assertEqual(code,409,obj)
             code,obj=self.req('/api/admin/checkout-create','POST',json.dumps({'id':OID,'confirmation':'AUTORIZO PIX REAL '+OID+' R$49'}).encode(),admin)

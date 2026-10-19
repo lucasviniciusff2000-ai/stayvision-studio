@@ -10,6 +10,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from seller_identity import require_seller_identity, SellerIdentityError
 from decimal import Decimal, InvalidOperation
 
 API = 'https://api.mercadopago.com/checkout/preferences'
@@ -93,6 +94,10 @@ def create_preference(order, *, idempotency_key):
     """Network-writing function. Caller MUST check gate and idempotent DB reservation."""
     if not gate(order['id']):
         raise CheckoutError('Checkout real está bloqueado.')
+    try:
+        require_seller_identity()
+    except SellerIdentityError as exc:
+        raise CheckoutError(str(exc)) from None
     payload=build_preference(order,os.environ['STAYVISION_PUBLIC_URL'])
     key=str(idempotency_key)
     if not re.fullmatch(r'[0-9a-f]{32,64}',key):

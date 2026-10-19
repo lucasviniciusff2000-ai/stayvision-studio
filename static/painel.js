@@ -126,6 +126,16 @@ $('#stage7-check-payment').addEventListener('click',async()=>{
    ' | Conferência: '+x.result+' | Status StayVision: '+x.order_payment_status+'. Nenhuma alteração automática por esta consulta.';
  }catch(e){out.textContent='Não foi possível conferir: '+e.message;}
 });
+$('#seller-verify-btn').addEventListener('click',async()=>{
+ const btn=$('#seller-verify-btn'),out=$('#seller-verify-result');
+ btn.disabled=true;out.textContent='Verificando o ID da conta com o Mercado Pago, sem criar preferência...';
+ try{
+  const x=await api('/api/admin/seller-identity');
+  out.textContent=(x.verified?'IDENTIDADE CONFIRMADA. ':'ATENÇÃO: IDENTIDADE DIVERGENTE. ')+x.message+
+   ' Checkout real continua bloqueado; nenhuma cobrança criada.';
+ }catch(e){out.textContent='Identidade NÃO confirmada: '+e.message+' Não desbloqueie o checkout.';}
+ finally{btn.disabled=false;}
+});
 $('#save-payment-toggle').addEventListener('click',async()=>{
  if(!settings?.mercadopago_ready)return;
  let payment=$('#payment-toggle').checked,sales=$('#sales-toggle').checked;

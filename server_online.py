@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""StayVision V1 Etapa 7: checkout restrito com confirmação explícita; bloqueado por padrão."""
+"""StayVision V1 Etapa 8: validação da identidade do vendedor; checkout bloqueado."""
 import argparse
 import base64
 import datetime as dt
@@ -27,6 +27,7 @@ from pathlib import Path
 from payments_readiness import pix_production_report, config_report, ReadinessError
 from payment_reconciliation import fetch_payment, review_payment, PaymentLookupUnavailable, audit_summary
 from checkout_production import gate as production_gate, build_preference, create_preference, CheckoutError
+from seller_identity import check_seller_identity, require_seller_identity, SellerIdentityError
 
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / 'static'
@@ -363,6 +364,10 @@ def stage_checkout(order_id):
     """Reserve the attempt BEFORE calling MP, so failure cannot auto-reissue a charge link."""
     if not production_gate(order_id):
         raise CheckoutError('Checkout real bloqueado. Nenhuma cobrança será criada.')
+    try:
+        require_seller_identity()
+    except SellerIdentityError as exc:
+        raise CheckoutError(str(exc)) from None
     with connection() as db:
         db.execute('BEGIN IMMEDIATE')
         order=preflight_checkout_order(db,order_id)
@@ -540,12 +545,20 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_admin(): return
             return self.send(200, {'mode':'locked' if os.getenv('STAYVISION_MP_CHECKOUT_MODE','locked')!='restricted' else 'restricted',
                 'orders_publicly_open':False,'checkout_real_enabled':False,
-                'single_order_gate_ready':production_gate(os.getenv('STAYVISION_MP_ALLOWED_ORDER_ID','')), 
+                'single_order_gate_ready':production_gate(os.getenv('STAYVISION_MP_ALLOWED_ORDER_ID','')), 'seller_identity_check_required':True, 
                 'production_token_present':prod_credential_configured(),
                 'collector_id_configured':bool(re.fullmatch(r'[0-9]{1,30}',os.getenv('MP_PRODUCTION_COLLECTOR_ID',''))),
                 'webhook_secret_configured':bool(os.getenv('MP_WEBHOOK_SECRET','').strip()),
                 'auto_confirm_enabled':False if os.getenv('STAYVISION_MP_AUTO_CONFIRM','0')!='1' else True,
                 'message':'A criação real permanece bloqueada até autorizar um único pedido nas variáveis privadas e confirmar por escrito no painel.'})
+        if path == '/api/admin/seller-identity':
+            if not self.require_admin(): return
+            if not rate_ok(('admin-seller-identity',self.client_address[0]),6,3600):
+                return self.fail(429,'Limite de verificações atingido. Aguarde.')
+            try:
+                return self.send(200,check_seller_identity())
+            except SellerIdentityError as exc:
+                return self.fail(502,str(exc))
         if path == '/api/admin/checkout-preview':
             if not self.require_admin(): return
             oid=q.get('id',[''])[0]

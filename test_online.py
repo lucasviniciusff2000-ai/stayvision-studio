@@ -47,7 +47,7 @@ class ServerTests(unittest.TestCase):
         code,body,_=self.request('/api/public/config');self.assertEqual(code,200)
         obj=json.loads(body);self.assertFalse(obj['sales_enabled']);self.assertFalse(obj['payment_enabled']);self.assertTrue(obj['demo_mode'])
         code,body,_=self.request('/api/client/checkout','POST',b'{}',{'Content-Type':'application/json'});self.assertEqual(code,403)
-        code,body,_=self.request('/api/mp/webhook','POST',b'{}',{'Content-Type':'application/json'});self.assertEqual(code,403)
+        code,body,_=self.request('/api/mp/webhook','POST',b'{}',{'Content-Type':'application/json'});self.assertEqual(code,503)
     def test_bootstrap_and_setup_locked(self):
         with mod.connection() as db:self.assertEqual(db.execute('SELECT COUNT(*) FROM users').fetchone()[0],1)
         code,body,_=self.request('/api/admin/setup','POST',b'{}',{'Content-Type':'application/json'});self.assertEqual(code,403)

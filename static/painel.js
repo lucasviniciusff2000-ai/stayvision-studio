@@ -45,6 +45,18 @@ $('#pix-production-btn').addEventListener('click', async()=>{
  } catch(err) {out.textContent='Consulta nao realizada: '+err.message;}
  finally {button.disabled=false;}
 });
+$('#webhook-diagnostic-btn').addEventListener('click', async()=>{
+ const output=$('#webhook-diagnostic-output');
+ output.textContent='Consultando notificações recebidas...';
+ try {
+   const x=await api('/api/admin/webhook-status');
+   const latest=x.recent_events?.[0];
+   output.textContent=(x.webhook_secret_configured?'Chave de webhook configurada. ':'Chave de webhook ainda NÃO configurada. ')+
+    'Notificações autenticadas recebidas: '+x.events_received+'. '+
+    (latest?'Última: '+latest.received_at+' — '+latest.event_type+'. ':'')+
+    'Nenhuma alteração de status de pagamento foi realizada.';
+ }catch(e){output.textContent='Falha na consulta: '+e.message;}
+});
 $('#settings-form').addEventListener('submit',async e=>{e.preventDefault();if(!settings)return;try{let plans=settings.plans.map(p=>({...p,price:Number($('#price-'+p.code).value)}));await api('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plans,brand_name:$('#brand-setting').value,contact_whatsapp:$('#whatsapp-setting').value})});$('#settings-feedback').textContent='Configurações salvas. Atualize o site para ver os valores.';await loadSettings();}catch(err){$('#settings-feedback').textContent=err.message;}});
 $('#save-payment-toggle').addEventListener('click',async()=>{
  if(!settings?.mercadopago_ready)return;

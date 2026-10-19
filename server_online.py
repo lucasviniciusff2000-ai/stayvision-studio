@@ -139,6 +139,10 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT NOT NULL,
             name TEXT NOT NULL, stored_name TEXT NOT NULL, mime TEXT NOT NULL,
             size INTEGER NOT NULL, FOREIGN KEY(order_id) REFERENCES orders(id))''')
+        db.execute('''CREATE TABLE IF NOT EXISTS mp_webhook_audit (
+            request_id TEXT PRIMARY KEY, received_at TEXT NOT NULL,
+            event_type TEXT NOT NULL, payment_id TEXT NOT NULL,
+            result TEXT NOT NULL)''')
         defaults = {
             'plans': DEFAULT_PLANS, 'brand_name': 'StayVision',
             'contact_whatsapp': '', 'sales_enabled': False,
@@ -501,6 +505,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, check_pix_production_availability())
             except ReadinessError as exc:
                 return self.fail(502, str(exc))
+        if path == '/api/admin/webhook-status':
+            if not self.require_admin(): return
+            with connection() as db:
+                rows = [dict(r) for r in db.execute('''SELECT received_at,event_type,result FROM mp_webhook_audit
+                    ORDER BY received_at DESC LIMIT 10''')]
+                count = db.execute('SELECT COUNT(*) FROM mp_webhook_audit').fetchone()[0]
+            return self.send(200, {'webhook_secret_configured': bool(os.getenv('MP_WEBHOOK_SECRET','').strip()),
+                'events_received': count,'recent_events':rows,'checkout_enabled':False,
+                'orders_approved_from_webhooks':False,'mode':'diagnostico_apenas'})
         if path == '/api/admin/settings':
             if not self.require_admin(): return
             return self.send(200, {**settings_public(),'mercadopago_ready':False,
@@ -552,9 +565,54 @@ class Handler(BaseHTTPRequestHandler):
                 return self.file_response(candidate, trusted=True)
         return self.fail(404,'Página não encontrada.')
 
+    def mp_webhook_diagnostic(self):
+        from payments_readiness import valid_webhook_signature
+        import urllib.parse
+        secret = os.getenv('MP_WEBHOOK_SECRET', '').strip()
+        if not secret:
+            return self.fail(503, 'Diagnóstico de webhook ainda não configurado.')
+        if self.headers.get('Origin'):
+            return self.fail(403, 'Origem de navegador não autorizada.')
+        if self.headers.get('Content-Type','').split(';',1)[0].strip().lower() != 'application/json':
+            return self.fail(415, 'Tipo de conteúdo inválido.')
+        parts = urllib.parse.urlsplit(self.path)
+        params = urllib.parse.parse_qs(parts.query, keep_blank_values=True)
+        pid_list = params.get('data.id', [])
+        event_type = params.get('type', [])
+        if len(pid_list)!=1 or len(event_type)!=1 or event_type[0]!='payment':
+            return self.fail(400, 'Parâmetros do webhook inválidos.')
+        pid = pid_list[0]
+        reqid = self.headers.get('X-Request-Id', '')
+        signature = self.headers.get('X-Signature', '')
+        if not valid_webhook_signature(secret,signature,reqid,pid):
+            return self.fail(401, 'Assinatura inválida.')
+        try:
+            raw = self.incoming(16384)
+            body = json.loads(raw)
+        except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
+            return self.fail(400, 'Corpo inválido.')
+        if not isinstance(body,dict) or body.get('type')!='payment' or not isinstance(body.get('data'),dict):
+            return self.fail(400, 'Evento inválido.')
+        if str(body['data'].get('id',''))!=pid:
+            return self.fail(400, 'Identificador divergente.')
+        if not str(body.get('action','')).startswith('payment.'):
+            return self.fail(400, 'Ação inválida.')
+        # Persist ONLY notification receipt metadata. Ignore raw body and payer data.
+        # Do not call payment APIs or approve orders at this stage.
+        with connection() as db:
+            db.execute('''INSERT OR IGNORE INTO mp_webhook_audit
+                (request_id,received_at,event_type,payment_id,result) VALUES(?,?,?,?,?)''',
+                (reqid[:128],now(),str(body['action'])[:50],pid,'assinatura_validada_sem_cobranca'))
+        return self.send(200, {'ok':True,'accepted_for_diagnostics':True,'payment_updated':False})
+
     def do_POST(self):
-        if not self.origin_ok(): return self.fail(403,'Origem inválida.')
         path = urllib.parse.urlsplit(self.path).path
+        # Mercado Pago server-to-server requests have no browser Origin header.
+        # This endpoint authenticates ONLY with the configured webhook HMAC secret.
+        # It NEVER initiates a charge or changes orders' payment_status.
+        if path == '/api/mp/webhook':
+            return self.mp_webhook_diagnostic()
+        if not self.origin_ok(): return self.fail(403,'Origem inválida.')
         try:
             if path == '/api/admin/setup':
                 return self.fail(403,'Administrador configurado somente pelas variaveis privadas da Railway.')
@@ -743,7 +801,7 @@ class Handler(BaseHTTPRequestHandler):
                         db.execute('UPDATE production_jobs SET state=?,updated_at=? WHERE order_id=?',
                                    ('entregue',now(),oid))
                 return self.send(200,{'ok':True})
-            if path in ('/api/client/checkout', '/api/admin/verify-payment', '/api/mp/webhook'):
+            if path in ('/api/client/checkout', '/api/admin/verify-payment'):
                 return self.fail(403,'Pagamentos indisponiveis nesta versao online de demonstracao.')
             return self.fail(404,'Endpoint não encontrado.')
         except ValueError as exc:

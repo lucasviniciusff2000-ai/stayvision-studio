@@ -19,60 +19,76 @@ class CheckoutError(ValueError):
     pass
 
 
-def gate(order_id=None):
-    """Fail-closed; no published client or admin interface enables this gate."""
-    mode = os.environ.get('STAYVISION_MP_CHECKOUT_MODE', 'locked').strip()
-    allowed = os.environ.get('STAYVISION_MP_ALLOWED_ORDER_ID', '').strip()
-    if mode != 'restricted' or not order_id or order_id != allowed:
-        return False
-    if os.environ.get('STAYVISION_MP_REAL_TEST_AUTHORIZATION', '') != 'EXPLICIT_SINGLE_ORDER_TEST':
-        return False
-    if not re.fullmatch(r'SV-[A-Z0-9-]{5,40}', order_id):
-        return False
+def seller_config_ready():
     if not re.fullmatch(r'[0-9]{1,30}', os.environ.get('MP_PRODUCTION_COLLECTOR_ID', '')):
         return False
     if not os.environ.get('MP_PRODUCTION_ACCESS_TOKEN', '').strip():
         return False
     if not os.environ.get('MP_WEBHOOK_SECRET', '').strip():
         return False
-    public_url=os.environ.get('STAYVISION_PUBLIC_URL','').strip()
+    public_url = os.environ.get('STAYVISION_PUBLIC_URL','').strip()
     try:
-        url=urllib.parse.urlsplit(public_url)
-        if url.scheme!='https' or not url.hostname or url.username or url.password or url.path not in ('','/') or url.query or url.fragment:
-            return False
+        u = urllib.parse.urlsplit(public_url)
+        return (u.scheme == 'https' and bool(u.hostname) and not u.username
+                and not u.password and u.path in ('','/') and not u.query and not u.fragment)
     except ValueError:
         return False
-    return True
 
 
-def build_preference(order, public_url):
+def public_sales_ready():
+    # Two independent, deliberate approvals. Never enabled by a code deployment.
+    return (os.environ.get('STAYVISION_MP_CHECKOUT_MODE','locked') == 'public'
+            and os.environ.get('STAYVISION_MP_PUBLIC_LAUNCH','') == 'I_AUTHORIZE_PUBLIC_SALES'
+            and os.environ.get('STAYVISION_MP_AUTO_CONFIRM','0') == '1'
+            and seller_config_ready())
+
+
+def gate(order_id=None):
+    """Restrict writes to a single explicit test or fully launched public sales."""
+    if not order_id or not re.fullmatch(r'SV-[A-Z0-9-]{5,40}',order_id):
+        return False
+    if not seller_config_ready():
+        return False
+    if public_sales_ready():
+        return True
+    return (os.environ.get('STAYVISION_MP_CHECKOUT_MODE','locked') == 'restricted'
+            and order_id == os.environ.get('STAYVISION_MP_ALLOWED_ORDER_ID','')
+            and os.environ.get('STAYVISION_MP_REAL_TEST_AUTHORIZATION','') == 'EXPLICIT_SINGLE_ORDER_TEST')
+
+
+def build_preference(order,public_url):
+    """Build a single-payment Checkout Pro preference; never a subscription."""
     oid=str(order['id'])
     if not re.fullmatch(r'SV-[A-Z0-9-]{5,40}',oid):
         raise CheckoutError('Pedido inválido.')
-    if order.get('plan_code') != 'photo':
-        raise CheckoutError('Apenas o plano Photo pode participar do teste restrito.')
+    code=str(order.get('plan_code',''))
+    if code not in ('photo','video','partner'):
+        raise CheckoutError('Plano inválido.')
     try:
         price=Decimal(str(order['price']))
     except (InvalidOperation,TypeError):
         raise CheckoutError('Preço inválido.') from None
-    if not price.is_finite() or price != Decimal('49'):
-        raise CheckoutError('O teste restrito está limitado a R$ 49 do plano Photo.')
+    if not price.is_finite() or price<=0 or price>Decimal('100000') or price!=price.to_integral_value():
+        raise CheckoutError('Preço inválido.')
+    # Restricted mode is an approved R$49 Photo pilot ONLY.
+    if not public_sales_ready() and (code!='photo' or price!=Decimal('49')):
+        raise CheckoutError('Modo restrito: apenas Photo R$ 49.')
     if order['payment_status'] not in ('nao_iniciado','pendente'):
         raise CheckoutError('O pedido não está elegível para novo checkout.')
-    public_url=public_url.rstrip('/')
-    if not public_url.startswith('https://'):
+    u=urllib.parse.urlsplit(public_url)
+    if u.scheme!='https' or not u.hostname or u.username or u.password or u.query or u.fragment or u.path not in ('','/'):
         raise CheckoutError('URL pública HTTPS obrigatória.')
-    # Avoid embedding private tracking tokens or personal data in URLs sent to MP.
+    public_url=public_url.rstrip('/')
+    labels={'photo':'Tratamento de fotografias','video':'Edicao de video imobiliario',
+            'partner':'Pacote de servicos - pagamento avulso'}
     return {
-        'items':[{'id':'photo','title':'StayVision Photo - tratamento de fotografias',
-                  'description':'Servico de apresentacao imobiliaria',
+        'items':[{'id':code,'title':'StayVision '+code.capitalize()+' - '+labels[code],
+                  'description':'Servico digital imobiliario. Pagamento unico.',
                   'quantity':1,'currency_id':'BRL','unit_price':float(price)}],
         'external_reference':oid,
-        'back_urls':{
-            'success':public_url+'/retorno?status=success',
-            'failure':public_url+'/retorno?status=failure',
-            'pending':public_url+'/retorno?status=pending',
-        },
+        'back_urls':{'success':public_url+'/retorno?status=success',
+                     'failure':public_url+'/retorno?status=failure',
+                     'pending':public_url+'/retorno?status=pending'},
         'auto_return':'approved',
         'notification_url':public_url+'/api/mp/webhook',
         'statement_descriptor':'STAYVISION',

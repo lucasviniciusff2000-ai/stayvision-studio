@@ -1,0 +1,25 @@
+STAYVISION V1 - ETAPA 9 - CHECKOUT PREPARADO (SEM ABRIR VENDAS)
+
+O site permanece visualmente igual à V1 verde-escuro e creme.
+Checkout Pro dos três serviços foi preparado e passou pelos testes automatizados locais.
+NENHUMA COBRANÇA REAL foi criada e NENHUMA variável da Railway foi alterada automaticamente.
+
+POR AGORA FAÇA SOMENTE ISTO:
+
+1. Faça backup do volume /data da Railway antes de atualizar.
+2. Extraia este ZIP e envie SEUS ARQUIVOS E PASTA static para a RAIZ do mesmo repositório GitHub da StayVision; confirme Commit changes.
+3. Espere a Railway aparecer Active.
+4. Confira em Railway > Variables que STAYVISION_MP_CHECKOUT_MODE permanece locked.
+   Não cadastre STAYVISION_MP_PUBLIC_LAUNCH, não troque tokens, não ative as vendas.
+5. Entre no painel da StayVision e confira Etapa 8: Identidade confirmada.
+
+Quando quiser TESTAR Pix REAL em um único pedido privado de R$ 49, siga a secao 2 do README.md com sua autorização.
+O teste real é necessário para validar Pix e notificações do Mercado Pago; os testes automáticos não fazem movimentação financeira.
+
+QUANDO FOR HORA DE LANÇAR:
+Checkout público abre SOMENTE quando ambas as condições de modo e a autorização final forem configuradas na Railway, e se as credenciais estiverem válidas (ver README).
+
+ATENÇÃO:
+A IA de edição de fotos/vídeos ainda NÃO está implementada e a entrega ainda é manual.
+O plano Partner é cobrança única, NÃO assinatura automática.
+Não há e-mail transacional automatizado nesta etapa.

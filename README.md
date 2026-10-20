@@ -1,77 +1,96 @@
-# StayVision V1 — Etapa 8: verificação segura do vendedor
+# StayVision Studio V1 — Etapa 9: checkout completo, pronto para testes de lançamento
 
-Atualização incremental do checkout restrito da StayVision V1. Mantém o site, o painel, os pedidos e o volume persistente da Railway. **Não cria cobranças, links ou Pix ao ser instalada.** O objetivo é comprovar, usando a API oficial, se o `MP_PRODUCTION_COLLECTOR_ID` pertence à conta identificada por `MP_PRODUCTION_ACCESS_TOKEN`.
+Esta é uma atualização **pré-lançamento** da V1 (visual verde-escuro/creme preservado). Foi construída em cima da Etapa 8.2, que já confirmou a identidade do vendedor. Ela **não ativa pagamentos reais quando instalada**: a configuração padrão permanece bloqueada, independentemente de o domínio ser público. Nenhum Access Token, senha, Webhook Secret, banco de dados ou fotos de clientes está incluído neste pacote.
 
-## O que muda
+## O que foi implementado
 
-- Painel → Configurações → **Etapa 8 — Conferir proprietário do token** → **Confirmar identidade da conta vendedora**.
-- O servidor faz uma única consulta autenticada por GET ao endpoint de identificação do Mercado Pago/Mercado Livre: `https://api.mercadolibre.com/users/me`.
-- A comparação usa o `id` retornado e `MP_PRODUCTION_COLLECTOR_ID` guardado nas variáveis privadas da Railway.
-- A resposta ao navegador contém somente se os IDs correspondem, últimos quatro dígitos de cada ID para diagnóstico, e um aviso. **Nunca retorna token, nome, e-mail ou dados pessoais da conta.**
-- Antes de uma tentativa futura de criar checkout restrito, o servidor repetirá a verificação. Se houver divergência, erro de rede, token ausente ou resposta inesperada, **nenhuma nova tentativa de cobrança será criada**.
-- Nenhuma alteração da configuração do checkout público, da confirmação automática de pedidos, dos preços ou das credenciais.
+- Checkout Pro de **pagamento avulso** para três serviços: Photo, Video e Partner (preços padrão R$ 49, R$ 197 e R$ 697). **O plano Partner não é uma assinatura recorrente**: cada pedido gera uma cobrança única; renovações precisariam de desenvolvimento separado.
+- Formulário público de pedido com upload validado, código e link privado de acompanhamento, **liberado somente após o lançamento**.
+- Criação de preferência Mercado Pago pelo backend; credenciais nunca vão ao browser. Conferência do vendedor antes da criação, valor salvo no pedido, referência externa, URLs de retorno e webhook.
+- Registro de idempotência em SQLite: cada pedido utiliza apenas uma preferência; diante de resultado ambíguo da API, não repete a tentativa de cobrança automaticamente.
+- Confirmação de pagamento **apenas após webhook assinado + GET do pagamento na API oficial**, verificando ambiente de produção, status, moeda, valor, proprietário, número do pedido e preferência criada pelo próprio site. Um retorno de navegador não comprova pagamento.
+- Atualização de `pago` com vínculo único ao ID de pagamento; não altera o estado para `concluido` nem envia material automaticamente.
+- Estorno/chargeback (status `refunded` e `charged_back`) verificado via API e por associação a um pedido previamente cadastrado: estado `estornado` impede download da entrega. Estornos parciais, cancelamentos e disputas complexas devem ser revisados manualmente no Mercado Pago.
+- Diagnóstico no painel preservado (Etapas 7 e 8), confirmação de identidade e eventos de webhook, sem mostrar chaves.
 
-## Instalação segura — sem ativar checkout
+## 1. Instalar, sem ativar vendas
 
-1. **Não apague o volume `/data`.** Guarde um backup de pedidos e fotos de teste antes de atualizar o código.
-2. Descompacte o ZIP e envie o conteúdo para a **raiz** do repositório GitHub da StayVision. Substitua os arquivos da Etapa 7 e inclua o novo arquivo `seller_identity.py`. O `Dockerfile` desta versão já o copia para a imagem.
-3. **Não envie** `.env`, Access Token, senha, banco de dados ou fotos de clientes para o GitHub.
-4. Aguarde o deploy da Railway ficar **Active**.
-5. Mantenha estas variáveis — **não ative o checkout**:
+1. Faça um **backup do volume Railway `/data`** (banco de pedidos e uploads) antes de publicar o novo código. Não apague/recrie o volume.
+2. Extraia o ZIP, abra o repositório GitHub `lucasviniciusff2000-ai/stayvision-studio` e **substitua os arquivos na raiz**. Coloque `static/` na pasta correta, sem criar subpasta adicional. Faça um commit; aguarde o deploy ficar `Active`.
+3. Mantenha as variáveis existentes no servidor. Configurações seguras de pré-lançamento:
 
-```text
-STAYVISION_ENABLE_DEMO_ORDERS=0
+```ini
+STAYVISION_DATA_DIR=/data
 STAYVISION_MP_CHECKOUT_MODE=locked
+STAYVISION_ENABLE_DEMO_ORDERS=0
 STAYVISION_MP_AUTO_CONFIRM=0
+# STAYVISION_MP_PUBLIC_LAUNCH NÃO DEVE SER CONFIGURADA AINDA
 ```
 
-`STAYVISION_MP_CHECKOUT_MODE` e `STAYVISION_MP_AUTO_CONFIRM` podem ser omitidas, pois o padrão já é seguro.
+A URL pública HTTPS, a chave de webhook, Access Token, Collector ID, login e senha do admin continuam configurados apenas na Railway. O código não necessita que eles sejam alterados agora. Nunca envie tokens a um chat, PDF, repositório ou cliente.
 
-6. Abra `https://truthful-embrace-production-c05b.up.railway.app/painel` → **Configurações → Etapa 8** → **Confirmar identidade da conta vendedora**.
-7. O botão efetua **somente GET**, sem criar preferências ou pagamentos. Veja o resultado:
-   - **IDENTIDADE CONFIRMADA** — o `User ID` retornado pelo serviço corresponde ao ID configurado. Ainda não indica que Pix aparecerá no checkout.
-   - **IDENTIDADE DIVERGENTE** — confirme o `User ID` da conta vendedora de PRODUÇÃO no Mercado Pago Developers e corrija a variável `MP_PRODUCTION_COLLECTOR_ID` na Railway. Não desbloqueie checkout.
-   - **Consulta não realizada** — API indisponível, falta de permissão no token, dados inválidos ou outra falha; mantenha checkout bloqueado e informe somente a mensagem de erro, **sem enviar credenciais**.
+4. Verifique no painel que **checkout bloqueado** e **identidade confirmada**, e que uma compra pública não pode ser iniciada.
 
-**Nenhuma cobrança real foi executada nem será executada automaticamente por esta instalação.** O checkout restrito de um único pedido Photo R$ 49 só poderá ser habilitado em etapa separada, com decisão explícita do responsável. Abrir um link não é pagar. Se, posteriormente, alguém pagar um link de produção, haverá movimentação financeira real sujeita a tarifas, estornos e regras do Mercado Pago.
+## 2. Teste privado obrigatório com dinheiro real (quando você decidir)
 
-## Testes locais (sem internet nem uso de credenciais reais)
+É impossível assegurar que o Pix aparece e que webhook/checkout foram aceitos pela sua conta específica **sem fazer pelo menos um teste real controlado**. O programa não realiza esse teste automaticamente.
+
+A Etapa 7 continua funcionando com autorização **apenas** do pedido Photo R$ 49:
+
+```ini
+STAYVISION_MP_CHECKOUT_MODE=restricted
+STAYVISION_MP_ALLOWED_ORDER_ID=SV-...              # troque pelo pedido autorizado
+STAYVISION_MP_REAL_TEST_AUTHORIZATION=EXPLICIT_SINGLE_ORDER_TEST
+STAYVISION_MP_AUTO_CONFIRM=1
+```
+
+Isso **não abre vendas públicas**. No painel → Etapa 7, use somente o pedido de teste autorizado e a frase exata solicitada pelo próprio painel. **Criar uma preferência não cobra ninguém automaticamente**; pagar o link transfere dinheiro real, sujeito a regras e tarifas do Mercado Pago. Confirme com antecedência quem arcará com taxas, política de estorno e valores.
+
+Valide manualmente: preço R$ 49, identidade do vendedor, meios de pagamento oferecidos (Pix é decisão do Mercado Pago), conclusão de um pagamento real explicitamente autorizado, chegada do webhook assinado, confirmação `pago` no painel, vínculo ao pedido, e, se apropriado, o processo de estorno. Não use dados de clientes reais para esse teste. Uma operação de teste com conta própria pode sofrer restrições pelo provedor; consulte as regras do Mercado Pago.
+
+**Após o teste, não desligue imediatamente `STAYVISION_MP_AUTO_CONFIRM` caso ainda haja links pendentes**, porque pagamentos de preferências já emitidas podem chegar mais tarde.
+
+## 3. Preparar tudo para o dia do lançamento, mas manter fechado
+
+Depois de concluir o teste privado, você pode deixar estas duas configurações prontas:
+
+```ini
+STAYVISION_MP_CHECKOUT_MODE=public
+STAYVISION_MP_AUTO_CONFIRM=1
+# STAYVISION_MP_PUBLIC_LAUNCH AUSENTE/VAZIA
+```
+
+**Assim o checkout público CONTINUA FECHADO.** A flag adicional é uma segunda autorização independente, além da configuração `public`.
+
+## 4. No dia que você QUISER abrir as vendas
+
+Você terá que **decidir conscientemente** habilitar a única chave final, na Railway → Variables:
+
+```ini
+STAYVISION_MP_PUBLIC_LAUNCH=I_AUTHORIZE_PUBLIC_SALES
+```
+
+Apenas com `STAYVISION_MP_CHECKOUT_MODE=public`, `STAYVISION_MP_AUTO_CONFIRM=1`, `STAYVISION_MP_PUBLIC_LAUNCH=I_AUTHORIZE_PUBLIC_SALES`, credenciais de produção, Collector ID numérico, Webhook Secret e URL HTTPS válida **em conjunto** o servidor libera novas compras. A verificação real de identidade do vendedor continua sendo exigida antes da criação de cada preferência. A aprovação do Mercado Pago para efetuar cobranças reais continua necessária.
+
+**Pausar novas vendas:** retire `STAYVISION_MP_PUBLIC_LAUNCH` e, preferencialmente, use `STAYVISION_MP_CHECKOUT_MODE=locked`. **Links já criados podem continuar pagáveis no Mercado Pago mesmo depois de bloquear novas vendas**; acompanhe e reconcilie pedidos existentes. Mantenha confirmação automática dos pagamentos anteriores enquanto houver pendências.
+
+## 5. Testes locais (tudo simulado — nenhuma chamada real ao Mercado Pago)
 
 ```bash
-python -m unittest -q test_online test_payments_readiness test_webhook_diagnostic test_reconciliation test_checkout_stage6 test_checkout_stage7 test_seller_stage8
+python -m unittest -q test_online test_payments_readiness test_webhook_diagnostic test_reconciliation test_checkout_stage6 test_checkout_stage7 test_seller_stage8 test_seller_stage8_2 test_checkout_stage9
 ```
 
-**66 testes aprovados** em 19/10/2026. Incluem bloqueio padrão, rejeição de vendedor divergente, autenticação administrativa, erro de API, inexistência de tentativa registrada após divergência, e verificação de que a consulta da identidade usa apenas GET. Chamadas de escrita à API foram simuladas nos testes.
+Também execute `node --check static/app.js`, `node --check static/acompanhar.js` e `node --check static/painel.js` se tiver Node instalado.
 
-Documentação oficial: https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/resources/credentials?scope=prod
+## 6. Limitações explícitas antes de divulgar
 
-> Nota: esta é uma integração de pré-lançamento. Antes de vendas públicas, ainda serão necessários teste controlado do Checkout Pro e do Pix, confirmação automática, revisão de segurança e fluxos de reembolso. Esta atualização não executa essas etapas por conta própria.
+- **Nenhuma operação real foi realizada no preparo deste ZIP.** É necessário validar a integração na sua conta e no domínio da Railway, em ambiente real, antes de afirmar que o checkout está homologado.
+- A automação de aprimoramento de fotos e geração de vídeos ainda **não existe** nesta versão; a entrega ocorre manualmente no painel. Não anuncie edição automática até que a IA esteja integrada e testada.
+- Não há envio automático de e-mails transacionais. O cliente deve guardar o link privado do acompanhamento. Para escala, é recomendável integrar um provedor de e-mail.
+- O Partner de R$ 697 é **pagamento único** por pacote de serviços; assinatura recorrente e renegociação de escopo precisam de implementação própria.
+- Cobranças múltiplas, disputas, chargebacks parciais, conciliação financeira contábil, impostos, cumprimento de LGPD e política de cancelamento/reembolso exigem revisão operacional antes das vendas públicas.
+- A verificação automática de pagamentos depende da entrega de webhooks pelo provedor e da disponibilidade de sua API. Monitore a sessão Notificações no painel. Os testes existentes são locais e simulados, não substituem o teste de ponta a ponta.
 
+**Arquivos a preservar no Railway:** volume `/data`, credenciais privadas e configurações de domínio. **Nunca coloque no GitHub:** `.env.local`, senhas, token, Client Secret, bancos de pedidos, uploads e imagens de clientes.
 
-## Atualização 8.1 — diagnóstico na própria tela
-
-O botão existente **Confirmar identidade da conta vendedora** agora exibe também os últimos quatro dígitos do ID configurado na Railway e do ID reconhecido pelo Access Token. Não é necessário abrir `/api/admin/seller-identity` em outra aba, pois isso pode não compartilhar os cookies de sessão. A alteração é apenas em `static/painel.js` e não altera o servidor nem as regras de bloqueio de pagamento. Após o deploy, atualize a aba do painel com Ctrl+Shift+R.
-
-## Atualização 8.2 — recuperar o Collector ID sem expor o token
-
-**Objetivo:** mostrar, dentro do painel autenticado, o ID *numérico completo* retornado pela API de identidade da conta de produção. Corrige a confusão entre o Client ID da aplicação (terminava em 2305 na configuração anterior) e o ID do vendedor (na consulta anterior, terminava em 8501).
-
-**Essa atualização não cria cobranças nem modifica os valores na Railway.** A consulta usa somente GET e continua exigindo sessão administrativa. O ID completo só é retornado ao pedir explicitamente, até 3 vezes por hora por origem. Não retorna Access Token, senha, nome ou e-mail. A resposta usa `Cache-Control: no-store`.
-
-### Instalação
-
-1. Mantenha `STAYVISION_MP_CHECKOUT_MODE=locked` e `STAYVISION_ENABLE_DEMO_ORDERS=0`; não habilite vendas.
-2. Baixe e extraia este pacote completo. Substitua os arquivos correspondentes na **raiz** do repositório GitHub `stayvision-studio`. Envie o conteúdo da pasta `static`, e **nunca** envie `.env`, senhas, tokens ou a pasta `/data`.
-3. Aguarde o status **Active** na Railway. O volume `/data` e as variáveis existentes devem permanecer intactos.
-4. Entre no painel, em **Configurações → Etapa 8**, e clique em **Consultar ID completo da conta (somente leitura)**. É preciso estar autenticado no próprio painel — não abra uma URL de API em outra aba.
-5. Confira que a conta Mercado Pago conectada é sua. Clique em **Copiar ID** e edite somente o **valor** de `MP_PRODUCTION_COLLECTOR_ID` na aba Variables da Railway. **Não** altere o nome da variável nem use o Client ID da aplicação.
-6. Volte ao painel depois que a Railway estiver **Active** e clique em **Confirmar identidade da conta vendedora**. O resultado esperado é `IDENTIDADE CONFIRMADA`. Mantenha o checkout bloqueado mesmo após a confirmação.
-7. Clique em **Ocultar** para limpar o número mostrado no navegador. Não envie esse ID em captura de tela e não envie tokens ou Client Secret ao chat.
-
-Se as credenciais de produção já apareceram num PDF com texto embutido, renove **todas as credenciais sensíveis que ficaram expostas**, incluindo Client Secret, conforme orientações oficiais do Mercado Pago.
-
-Testes locais, sem acesso à conta real:
-
-```bash
-python -m unittest -q test_online test_payments_readiness test_webhook_diagnostic test_reconciliation test_checkout_stage6 test_checkout_stage7 test_seller_stage8 test_seller_stage8_2
-```
+Registro anterior: `README_ETAPA8_HISTORICO.md`.

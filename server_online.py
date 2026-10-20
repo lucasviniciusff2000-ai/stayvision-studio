@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""StayVision V1 Etapa 8: validação da identidade do vendedor; checkout bloqueado."""
+"""StayVision V1: Checkout Pro seguro, bloqueado por padrão; lançamento explícito."""
 import argparse
 import base64
 import datetime as dt
@@ -26,7 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from payments_readiness import pix_production_report, config_report, ReadinessError
 from payment_reconciliation import fetch_payment, review_payment, PaymentLookupUnavailable, audit_summary
-from checkout_production import gate as production_gate, build_preference, create_preference, CheckoutError
+from checkout_production import gate as production_gate, public_sales_ready, build_preference, create_preference, CheckoutError
 from seller_identity import check_seller_identity, require_seller_identity, SellerIdentityError
 
 BASE = Path(__file__).resolve().parent
@@ -159,7 +159,8 @@ def init_db():
         }
         for key, value in defaults.items():
             db.execute('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)', (key, json.dumps(value, ensure_ascii=False)))
-        # Esta versao ONLINE e somente para demonstracao. Nao aceitar flags antigas de pagamento.
+        # O desbloqueio financeiro NÃO depende de flags armazenadas no banco;
+        # somente envs explícitas e verificações do servidor podem habilitar vendas.
         for key,value in [('sales_enabled', False), ('payment_enabled', False), ('demo_mode', True)]:
             db.execute('UPDATE settings SET value=? WHERE key=?',(json.dumps(value), key))
 
@@ -180,9 +181,11 @@ def setting(key, fallback=None):
 
 
 def settings_public():
-    return {**{k: setting(k) for k in ('plans', 'brand_name', 'contact_whatsapp', 'sales_enabled', 'payment_enabled', 'demo_mode')},
-            'sales_enabled':False, 'payment_enabled':False, 'demo_mode':True,
-            'demo_orders_enabled': DEMO_ORDERS, 'payment_environment':'desativado'}
+    opened=public_sales_ready()
+    return {**{k: setting(k) for k in ('plans', 'brand_name', 'contact_whatsapp')},
+            'sales_enabled':opened, 'payment_enabled':opened, 'demo_mode':not opened,
+            'demo_orders_enabled': DEMO_ORDERS and not opened,
+            'payment_environment':'producao' if opened else 'desativado'}
 
 
 def set_setting(key, value):
@@ -192,8 +195,7 @@ def set_setting(key, value):
 
 
 def mp_environment():
-    # Esta distribuição só permite transações simuladas. Produção exige nova revisão.
-    return 'desativado'  # NUNCA usar pagamentos no preview publico
+    return 'producao' if public_sales_ready() else 'desativado' 
 
 
 def configured_mp():
@@ -398,7 +400,8 @@ def settle_payment_approved(payment):
     """Strict idempotent settlement, not enabled by default; only for registered order."""
     if os.getenv('STAYVISION_MP_AUTO_CONFIRM','0') != '1': return False
     oid=str(payment.get('external_reference',''))
-    if not production_gate(oid): return False
+    # A previously issued preference may be paid after public sales are paused.
+    # Verify the stored preference instead of requiring that new checkouts be enabled.
     pid=str(payment.get('id',''))
     if not re.fullmatch(r'[0-9]{1,30}',pid): return False
     with connection() as db:
@@ -406,7 +409,7 @@ def settle_payment_approved(payment):
         registry=db.execute('SELECT * FROM mp_checkout_registry WHERE order_id=?',(oid,)).fetchone()
         rec=db.execute('SELECT id,price,preference_id,plan_code,payment_status FROM orders WHERE id=?',(oid,)).fetchone()
         if not registry or registry['stage']!='ready' or not rec: return False
-        if rec['plan_code']!='photo': return False
+        if rec['plan_code'] not in ('photo','video','partner'): return False
         if registry['preference_id']!=rec['preference_id']: return False
         if registry['payment_id'] and registry['payment_id']!=pid: return False
         if rec['payment_status'] in ('estornado','recusado'): return False
@@ -418,6 +421,45 @@ def settle_payment_approved(payment):
         db.execute("UPDATE orders SET payment_status='pago',updated_at=? WHERE id=?",(now(),oid))
         ensure_job(db,oid,rec['plan_code'])
         # Never mark delivery as complete here: fulfillment requires human review.
+    return True
+
+
+def settle_payment_reversal(payment):
+    """Record an authenticated full reversal/chargeback for the matching MP payment.
+
+    Caller MUST GET payment from MP. We never create a refund here, only stop access
+    to a delivery already paid for when MP has reversed the charge.
+    """
+    if os.getenv('STAYVISION_MP_AUTO_CONFIRM','0') != '1': return False
+    if payment.get('status') not in ('refunded','charged_back'): return False
+    if payment.get('live_mode') is not True: return False
+    oid=str(payment.get('external_reference',''))
+    pid=str(payment.get('id',''))
+    if not re.fullmatch(r'SV-[A-Z0-9-]{5,40}',oid) or not re.fullmatch(r'[0-9]{1,30}',pid):
+        return False
+    # Do not trust a webhook body for payment fields; caller fetched these from MP.
+    with connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        registry=db.execute('SELECT * FROM mp_checkout_registry WHERE order_id=?',(oid,)).fetchone()
+        rec=db.execute('SELECT id,price,preference_id,payment_status FROM orders WHERE id=?',(oid,)).fetchone()
+        if not registry or registry['stage']!='ready' or not rec: return False
+        if registry['preference_id']!=rec['preference_id'] or not rec['preference_id']: return False
+        if registry['payment_id'] and registry['payment_id']!=pid: return False
+        if payment.get('currency_id')!='BRL' or str(payment.get('collector_id',''))!=os.getenv('MP_PRODUCTION_COLLECTOR_ID',''):
+            return False
+        if str(payment.get('preference_id',''))!=registry['preference_id'] or str(payment.get('external_reference',''))!=oid:
+            return False
+        try:
+            from decimal import Decimal
+            amount=Decimal(str(payment['transaction_amount']))
+            price=Decimal(str(rec['price']))
+            if not amount.is_finite() or price<=0 or amount!=price: return False
+        except (KeyError,ValueError,TypeError,ArithmeticError):
+            return False
+        other=db.execute('SELECT order_id FROM mp_checkout_registry WHERE payment_id=?',(pid,)).fetchone()
+        if other and other['order_id']!=oid: return False
+        db.execute('UPDATE mp_checkout_registry SET payment_id=?,updated_at=? WHERE order_id=?',(pid,now(),oid))
+        db.execute('UPDATE orders SET payment_status=?,updated_at=? WHERE id=?',('estornado',now(),oid))
     return True
 
 
@@ -495,7 +537,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/health':
             try:
                 with connection() as db: db.execute('SELECT 1').fetchone()
-                return self.send(200, {'ok':True,'mode':'pedidos_demo','payments':False})
+                return self.send(200, {'ok':True,'mode':'vendas' if public_sales_ready() else 'pedidos_demo','payments':public_sales_ready()})
             except sqlite3.Error:
                 return self.fail(503,'Banco indisponivel')
         if path == '/api/admin/me':
@@ -543,14 +585,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self.fail(502, str(exc))
         if path == '/api/admin/checkout-readiness':
             if not self.require_admin(): return
-            return self.send(200, {'mode':'locked' if os.getenv('STAYVISION_MP_CHECKOUT_MODE','locked')!='restricted' else 'restricted',
-                'orders_publicly_open':False,'checkout_real_enabled':False,
-                'single_order_gate_ready':production_gate(os.getenv('STAYVISION_MP_ALLOWED_ORDER_ID','')), 'seller_identity_check_required':True, 
+            mode=os.getenv('STAYVISION_MP_CHECKOUT_MODE','locked')
+            public=public_sales_ready()
+            return self.send(200, {'mode':mode if mode in ('locked','restricted','public') else 'locked',
+                'orders_publicly_open':public,'checkout_real_enabled':public,
+                'single_order_gate_ready':production_gate(os.getenv('STAYVISION_MP_ALLOWED_ORDER_ID','')) and mode=='restricted',
+                'seller_identity_check_required':True,
                 'production_token_present':prod_credential_configured(),
                 'collector_id_configured':bool(re.fullmatch(r'[0-9]{1,30}',os.getenv('MP_PRODUCTION_COLLECTOR_ID',''))),
                 'webhook_secret_configured':bool(os.getenv('MP_WEBHOOK_SECRET','').strip()),
-                'auto_confirm_enabled':False if os.getenv('STAYVISION_MP_AUTO_CONFIRM','0')!='1' else True,
-                'message':'A criação real permanece bloqueada até autorizar um único pedido nas variáveis privadas e confirmar por escrito no painel.'})
+                'auto_confirm_enabled':os.getenv('STAYVISION_MP_AUTO_CONFIRM','0')=='1',
+                'message':'Vendas públicas prontas.' if public else 'Checkout público BLOQUEADO até lançamento explícito.'})
         if path == '/api/admin/seller-identity':
             if not self.require_admin(): return
             if not rate_ok(('admin-seller-identity',self.client_address[0]),6,3600):
@@ -579,7 +624,7 @@ class Handler(BaseHTTPRequestHandler):
                     existing=db.execute('SELECT stage,preference_id FROM mp_checkout_registry WHERE order_id=?',(oid,)).fetchone()
                 payload=build_preference(order,os.getenv('STAYVISION_PUBLIC_URL',''))
                 return self.send(200,{'dry_run':True,'charge_created':False,
-                    'order_id':oid,'plan':'photo','amount_brl':49,'currency':'BRL',
+                    'order_id':oid,'plan':order['plan_code'],'amount_brl':order['price'],'currency':'BRL',
                     'preference_linked':bool(existing and existing['stage']=='ready'),
                     'checkout_locked':not production_gate(oid),
                     'payment_methods':'Definidos pelo Mercado Pago; Pix nao garantido no checkout',
@@ -627,14 +672,16 @@ class Handler(BaseHTTPRequestHandler):
                     ORDER BY received_at DESC LIMIT 10''')]
                 count = db.execute('SELECT COUNT(*) FROM mp_webhook_audit').fetchone()[0]
             return self.send(200, {'webhook_secret_configured': bool(os.getenv('MP_WEBHOOK_SECRET','').strip()),
-                'events_received': count,'recent_events':rows,'checkout_enabled':False,
-                'orders_approved_from_webhooks':False,'mode':'consulta_readonly',
+                'events_received': count,'recent_events':rows,'checkout_enabled':public_sales_ready(),
+                'orders_approved_from_webhooks':os.getenv('STAYVISION_MP_AUTO_CONFIRM','0')=='1',
+                'mode':'automatico_validado' if os.getenv('STAYVISION_MP_AUTO_CONFIRM','0')=='1' else 'consulta_readonly',
                 'reconciliation':audit_summary(rows),
                 'collector_configured':bool(re.fullmatch(r'[0-9]{1,30}', os.getenv('MP_PRODUCTION_COLLECTOR_ID','')))})
         if path == '/api/admin/settings':
             if not self.require_admin(): return
-            return self.send(200, {**settings_public(),'mercadopago_ready':False,
-                                   'public_url':bool(os.getenv('STAYVISION_PUBLIC_URL')), 'payment_environment':'desativado', 'pix_production_diagnostic_ready':prod_credential_configured()})
+            return self.send(200, {**settings_public(),'mercadopago_ready':public_sales_ready(),
+                                   'public_url':bool(os.getenv('STAYVISION_PUBLIC_URL')),
+                                   'pix_production_diagnostic_ready':prod_credential_configured()})
         match = re.fullmatch(r'/api/admin/orders/([A-Z0-9-]+)', path)
         if match:
             if not self.require_admin(): return
@@ -658,7 +705,8 @@ class Handler(BaseHTTPRequestHandler):
                 if not order: return self.fail(404, 'Pedido não encontrado.')
                 num = db.execute('SELECT COUNT(*) c FROM order_files WHERE order_id=?',(order['id'],)).fetchone()['c']
             return self.send(200, {'order':order_out(order),'image_count':num,'delivery_ready':bool(order['delivery_filename']),
-                                   'checkout_available': bool(setting('payment_enabled') and setting('sales_enabled') and configured_mp()), 'payment_environment':mp_environment()})
+                                   'checkout_available': public_sales_ready() and order['payment_status'] in ('nao_iniciado','pendente'),
+                                   'payment_environment':mp_environment()})
         if path == '/api/client/delivery':
             token = q.get('token',[''])[0]
             with connection() as db:
@@ -726,6 +774,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, {'ok':True,'already_recorded':True,'payment_updated':False})
         # O simulador pode enviar IDs sem pagamento real: 404 é um diagnóstico,
         # nunca aprovação. A API externa é fonte autoritativa, não o webhook.
+        remote_payment = None
         if os.getenv('MP_PRODUCTION_ACCESS_TOKEN', '').strip():
             try:
                 remote_payment = fetch_payment(pid)
@@ -746,9 +795,13 @@ class Handler(BaseHTTPRequestHandler):
         # Etapa 7: liquidação estritamente condicionada a uma preferência emitida
         # pelo próprio backend e a habilitação explícita. Por padrão, NÃO baixa.
         payment_updated=False
-        if result == 'aprovado_validado_sem_baixa' and remote_payment is not None:
-            payment_updated=settle_payment_approved(remote_payment)
-            if payment_updated: result='aprovado_baixa_validada'
+        if remote_payment is not None:
+            if result == 'aprovado_validado_sem_baixa':
+                payment_updated=settle_payment_approved(remote_payment)
+                if payment_updated: result='aprovado_baixa_validada'
+            elif remote_payment.get('status') in ('refunded','charged_back'):
+                payment_updated=settle_payment_reversal(remote_payment)
+                if payment_updated: result='estorno_validado'
         with connection() as db:
             db.execute('''INSERT OR IGNORE INTO mp_webhook_audit
                 (request_id,received_at,event_type,payment_id,result) VALUES(?,?,?,?,?)''',
@@ -791,6 +844,27 @@ class Handler(BaseHTTPRequestHandler):
                         'preference_id':result['preference_id'], 'url':result['checkout_url'],
                         'warning':'URL de cobrança REAL. Apenas admin autorizado pode usá-la.'})
                 except CheckoutError as exc: return self.fail(409,str(exc))
+            if path == '/api/client/checkout':
+                if not public_sales_ready():
+                    return self.fail(403,'Checkout público ainda não foi liberado.')
+                if self.headers.get('Origin','') != os.getenv('STAYVISION_PUBLIC_URL','').rstrip('/'):
+                    return self.fail(403,'Origem do checkout inválida.')
+                if self.headers.get('Content-Type','').split(';',1)[0].strip().lower()!='application/json':
+                    return self.fail(415,'Envie JSON.')
+                if not rate_ok(('client-checkout',self.client_address[0]),12,3600):
+                    return self.fail(429,'Limite de tentativas. Aguarde.')
+                data=read_json(self.incoming(2048))
+                token=str(data.get('token',''))
+                if not (30<=len(token)<=128):
+                    return self.fail(403,'Link de acompanhamento inválido.')
+                with connection() as db:
+                    rec=db.execute('SELECT id FROM orders WHERE customer_token=?',(token,)).fetchone()
+                if not rec: return self.fail(404,'Pedido não localizado.')
+                try:
+                    result=stage_checkout(rec['id'])
+                    return self.send(200,{'ok':True,'url':result['checkout_url'],'reused':result['reused']})
+                except CheckoutError as exc:
+                    return self.fail(409,str(exc))
             if path == '/api/admin/setup':
                 return self.fail(403,'Administrador configurado somente pelas variaveis privadas da Railway.')
             if path == '/api/admin/login':
@@ -813,8 +887,8 @@ class Handler(BaseHTTPRequestHandler):
                         with connection() as db: db.execute('DELETE FROM sessions WHERE token_hash=?', (hashlib.sha256(match.group(1).encode()).hexdigest(),))
                 return self.send(200, {'ok':True}, headers={'Set-Cookie':'stayvision_session=; HttpOnly; SameSite=Strict; Secure; Path=/; Max-Age=0'})
             if path == '/api/orders':
-                if not DEMO_ORDERS:
-                    return self.fail(403,'Pedidos de demonstracao ainda nao liberados.')
+                if not (DEMO_ORDERS or public_sales_ready()):
+                    return self.fail(403,'Pedidos ainda não liberados.')
                 if not rate_ok(('orders',self.client_address[0]), 15, 3600):
                     return self.fail(429,'Limite de pedidos de teste atingido. Aguarde.')
                 fields, files = parse_form(self.headers.get('Content-Type',''), self.incoming())
@@ -997,7 +1071,7 @@ def serve(host,port):
     print('  Site: http://127.0.0.1:%d' % port)
     print('  Painel privado: http://127.0.0.1:%d/painel' % port)
     print('  Banco: '+str(DB))
-    print('  PREVIA DE PEDIDOS SEM COBRANCAS.\n')
+    print('  PUBLICO: '+('ABERTO' if public_sales_ready() else 'BLOQUEADO')+'\n')
     if os.name == 'nt':
         threading.Timer(0.6, lambda: webbrowser.open('http://127.0.0.1:%d' % port)).start()
     server.serve_forever()

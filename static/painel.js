@@ -24,7 +24,7 @@ $('#close-order').addEventListener('click',()=>{$('#order-editor').classList.add
 $('#update-form').addEventListener('submit',async e=>{e.preventDefault();if(!currentOrder)return;try{await api('/api/admin/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:currentOrder.id,status:$('#edit-status').value,payment_status:$('#edit-payment').value,admin_note:$('#edit-note').value})});$('#update-feedback').textContent='Alterações salvas com sucesso.';await refresh();}catch(err){$('#update-feedback').textContent=err.message;}});
 $('#verify-payment-form').addEventListener('submit',async e=>{e.preventDefault();if(!currentOrder)return;const feed=$('#verify-feedback');feed.textContent='Consultando o Mercado Pago...';try{const response=await api('/api/admin/verify-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:currentOrder.id,payment_id:$('#mp-payment-id').value.trim()})});await refresh();await openOrder(currentOrder.id);$('#verify-feedback').textContent='Consulta concluída: '+response.payment_status+' (Mercado Pago: '+response.provider_status+').';}catch(err){feed.textContent=err.message;}});
 $('#delivery-form').addEventListener('submit',async e=>{e.preventDefault();if(!currentOrder)return;const f=$('#delivery-file').files[0];if(!f)return;if(f.size>94371840){$('#delivery-feedback').textContent='Arquivo maior que 90 MB.';return;}let form=new FormData();form.append('id',currentOrder.id);form.append('delivery',f);$('#delivery-feedback').textContent='Enviando arquivo, aguarde...';try{await api('/api/admin/deliver',{method:'POST',body:form});$('#delivery-feedback').textContent='Arquivo salvo! A entrega é liberada quando o pagamento estiver confirmado.';$('#edit-status').value='concluido';$('#delivery-file').value='';await refresh();}catch(err){$('#delivery-feedback').textContent=err.message;}});
-async function loadSettings(){settings=await api('/api/admin/settings');$('#brand-setting').value=settings.brand_name;$('#whatsapp-setting').value=settings.contact_whatsapp;$('#settings-prices').innerHTML=settings.plans.map(p=>`<div><label for="price-${p.code}">${h(p.name)}</label><input class="input" type="number" min="1" max="100000" step="1" id="price-${p.code}" value="${p.price}"><p style="font-size:11px;color:#7b8978">${h(p.description)}</p></div>`).join('');$('#payment-toggles').classList.add('hidden');$('#pix-production-credential-status').textContent=settings.pix_production_diagnostic_ready?'Token de produção cadastrado no servidor (valor oculto).':'Token de produção ainda não cadastrado na Railway.';$('#payment-toggle').checked=!!settings.payment_enabled;$('#sales-toggle').checked=!!settings.sales_enabled;$('#payment-diagnostics').innerHTML='<b>Checkout real desativado.</b> Você pode conferir o Pix com a conta de produção em modo somente leitura. Nenhuma cobrança pode ser criada por esta versão.';}
+async function loadSettings(){settings=await api('/api/admin/settings');$('#brand-setting').value=settings.brand_name;$('#whatsapp-setting').value=settings.contact_whatsapp;$('#settings-prices').innerHTML=settings.plans.map(p=>`<div><label for="price-${p.code}">${h(p.name)}</label><input class="input" type="number" min="1" max="100000" step="1" id="price-${p.code}" value="${p.price}"><p style="font-size:11px;color:#7b8978">${h(p.description)}</p></div>`).join('');$('#payment-toggles').classList.add('hidden');$('#pix-production-credential-status').textContent=settings.pix_production_diagnostic_ready?'Token de produção cadastrado no servidor (valor oculto).':'Token de produção ainda não cadastrado na Railway.';$('#payment-toggle').checked=!!settings.payment_enabled;$('#sales-toggle').checked=!!settings.sales_enabled;$('#payment-diagnostics').textContent=settings.sales_enabled?'Checkout de produção ATIVO. A confirmação dos pagamentos depende dos webhooks autenticados.':'Checkout público BLOQUEADO. Integração de produção preparada para lançamento quando autorizada na Railway.';}
 $('#pix-diagnostic-btn').addEventListener('click', async () => {
  const button=$('#pix-diagnostic-btn'), out=$('#pix-diagnostic-result');
  button.disabled=true;out.textContent='Consultando os meios de pagamento com a credencial de TESTE...';
@@ -63,10 +63,10 @@ async function checkCheckoutReadiness(){
  const el=$('#checkout-readiness-status');
  try{
   const x=await api('/api/admin/checkout-readiness');
-  el.textContent=(x.mode==='locked'?'Checkout real BLOQUEADO. ':'Modo restrito configurado; verifique as autorizações. ')+
+  el.textContent=(x.orders_publicly_open?'Checkout público ATIVO. ':(x.mode==='locked'?'Checkout real BLOQUEADO. ':'Modo restrito configurado; verifique as autorizações. '))+
    (x.production_token_present?'Token de produção cadastrado. ':'Token de produção ausente. ')+
    (x.collector_id_configured?'ID do vendedor configurado. ':'ID do vendedor ainda não configurado. ')+
-   'Venda pública: NÃO. Não criar pagamentos a partir desta tela.';
+   (x.orders_publicly_open?'Venda pública: SIM (somente se autorizada nas variáveis).':'Venda pública: NÃO.');
  }catch(e){el.textContent='Diagnóstico indisponível: '+e.message;}
 }
 $('#checkout-dryrun-btn').addEventListener('click',async()=>{
@@ -86,7 +86,7 @@ async function stage7Readiness(){
  try{
   const x=await api('/api/admin/checkout-readiness');
   const ready=!!x.single_order_gate_ready;
-  status.textContent=ready?'Autorização de pedido único detectada. Confirme antes de criar link real.':'BLOQUEADO: modo restrito e autorização por pedido ainda não foram habilitados nas variáveis privadas.';
+  status.textContent=ready?'Autorização de pedido único detectada. Confirme antes de criar link real.':(x.orders_publicly_open?'Vendas públicas ativas: seção de teste restrito desnecessária.':'BLOQUEADO: modo restrito e autorização por pedido ainda não foram habilitados nas variáveis privadas.');
   btn.disabled=!ready;
  }catch(e){status.textContent='Diagnóstico indisponível: '+e.message;btn.disabled=true;}
 }

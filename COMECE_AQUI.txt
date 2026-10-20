@@ -1,25 +1,24 @@
-STAYVISION V1 - ETAPA 9 - CHECKOUT PREPARADO (SEM ABRIR VENDAS)
+STAYVISION V1 - ETAPA 10 - CONCILIACAO DO PIX JA RECEBIDO
 
-O site permanece visualmente igual à V1 verde-escuro e creme.
-Checkout Pro dos três serviços foi preparado e passou pelos testes automatizados locais.
-NENHUMA COBRANÇA REAL foi criada e NENHUMA variável da Railway foi alterada automaticamente.
+ERRO CORRIGIDO:
+O botao antigo do pedido chamava POST /api/admin/verify-payment, bloqueado pela mensagem de demonstracao. Agora o painel consulta a API de producao do Mercado Pago para CONCILIAR um pagamento existente.
 
-POR AGORA FAÇA SOMENTE ISTO:
+NAO GERA NOVO LINK. NAO REALIZA PAGAMENTO. NAO AUTORIZA VENDAS PUBLICAS.
 
-1. Faça backup do volume /data da Railway antes de atualizar.
-2. Extraia este ZIP e envie SEUS ARQUIVOS E PASTA static para a RAIZ do mesmo repositório GitHub da StayVision; confirme Commit changes.
-3. Espere a Railway aparecer Active.
-4. Confira em Railway > Variables que STAYVISION_MP_CHECKOUT_MODE permanece locked.
-   Não cadastre STAYVISION_MP_PUBLIC_LAUNCH, não troque tokens, não ative as vendas.
-5. Entre no painel da StayVision e confira Etapa 8: Identidade confirmada.
+INSTALACAO:
+1. Guarde o backup do volume /data, como ja realizado.
+2. Extraia este ZIP e envie os arquivos na RAIZ do repositório GitHub StayVision, substituindo os anteriores, incluindo static/.
+3. Espere a Railway mostrar Active. Nao remova o volume /data.
+4. Mantenha STAYVISION_MP_CHECKOUT_MODE=restricted ou locked, e STAYVISION_MP_AUTO_CONFIRM=1 para conciliar o Pix ja recebido. NAO crie STAYVISION_MP_PUBLIC_LAUNCH.
+5. Atualize o painel com Ctrl+F5, abra o pedido que recebeu o Pix e entre em "Conciliar pagamento real ja recebido".
+6. Use o ID numerico da OPERACAO DE PAGAMENTO existente no Mercado Pago (nao o Pix, nem o Client ID); clique "Conferir e conciliar pagamento".
+7. Se a API confirmar todos os dados, o campo "Status de pagamento" mudara para Pago. Se nao, a tela mostrara o motivo e NADA mudara.
+8. Por fim, verifique Configurações > Notificacoes Mercado Pago e o status do webhook. A conciliacao manual repara este pedido, mas a entrega automatica do webhook ainda deve ser diagnosticada antes do lancamento.
 
-Quando quiser TESTAR Pix REAL em um único pedido privado de R$ 49, siga a secao 2 do README.md com sua autorização.
-O teste real é necessário para validar Pix e notificações do Mercado Pago; os testes automáticos não fazem movimentação financeira.
+SEGURANCA:
+- Funcao so para administrador autenticado, apenas Origin do painel, JSON, limite por IP.
+- So concilia preferencia real ja armazenada no banco, mesmo pedido, mesmo valor, moeda BRL, vendedor, producao e payment_id ainda nao vinculado a outro pedido.
+- Nenhuma nova cobrança, transferencia ou estorno.
+- Sem tokens, banco ou imagens no pacote.
 
-QUANDO FOR HORA DE LANÇAR:
-Checkout público abre SOMENTE quando ambas as condições de modo e a autorização final forem configuradas na Railway, e se as credenciais estiverem válidas (ver README).
-
-ATENÇÃO:
-A IA de edição de fotos/vídeos ainda NÃO está implementada e a entrega ainda é manual.
-O plano Partner é cobrança única, NÃO assinatura automática.
-Não há e-mail transacional automatizado nesta etapa.
+TESTES: python -m unittest -q test_checkout_stage10 e suite anterior.

@@ -865,6 +865,48 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(200,{'ok':True,'url':result['checkout_url'],'reused':result['reused']})
                 except CheckoutError as exc:
                     return self.fail(409,str(exc))
+            if path == '/api/admin/verify-payment':
+                # Conciliação manual autenticada do PAGAMENTO EXISTENTE, nunca cria cobranças.
+                # Recupera os detalhes usando a API do MP, nunca confia no status do navegador.
+                if not self.require_admin(): return
+                if self.headers.get('Origin','') != os.getenv('STAYVISION_PUBLIC_URL','').rstrip('/'):
+                    return self.fail(403,'Origem do painel inválida.')
+                if self.headers.get('Content-Type','').split(';',1)[0].strip().lower() != 'application/json':
+                    return self.fail(415,'Envie JSON nesta operação.')
+                if not rate_ok(('admin-manual-reconciliation',self.client_address[0]),10,3600):
+                    return self.fail(429,'Limite de conciliações atingido. Aguarde uma hora.')
+                data=read_json(self.incoming(2048))
+                oid=str(data.get('id','')).strip()
+                pid=str(data.get('payment_id','')).strip()
+                if not re.fullmatch(r'SV-[A-Z0-9-]{5,40}',oid) or not re.fullmatch(r'[0-9]{1,30}',pid):
+                    return self.fail(400,'Informe um pedido StayVision e um ID numérico de pagamento válidos.')
+                with connection() as db:
+                    order=db.execute('SELECT id,plan_code,price,preference_id,payment_status FROM orders WHERE id=?',(oid,)).fetchone()
+                    registry=db.execute('SELECT stage,preference_id,payment_id FROM mp_checkout_registry WHERE order_id=?',(oid,)).fetchone()
+                if not order or not registry or registry['stage']!='ready' or not order['preference_id'] or registry['preference_id']!=order['preference_id']:
+                    return self.fail(409,'Pedido sem preferência de pagamento emitida e registrada pela StayVision.')
+                if registry['payment_id'] and registry['payment_id']!=pid:
+                    return self.fail(409,'Pedido já vinculado a outro ID de pagamento. Não houve alteração.')
+                if os.getenv('STAYVISION_MP_AUTO_CONFIRM','0')!='1':
+                    return self.fail(409,'Confirmação automática desabilitada em STAYVISION_MP_AUTO_CONFIRM. Nenhuma alteração.')
+                try:
+                    payment=fetch_payment(pid)
+                except PaymentLookupUnavailable:
+                    return self.fail(502,'Consulta à API do Mercado Pago indisponível. Nenhuma alteração.')
+                verdict=review_payment(payment,dict(order),collector_id=os.getenv('MP_PRODUCTION_COLLECTOR_ID',''))
+                if verdict!='aprovado_validado_sem_baixa':
+                    return self.fail(409,'Pagamento não conciliado: '+verdict+'. Nenhuma alteração.')
+                # A rotina preexistente revalida os detalhes dentro de uma transação
+                # SQLite, impede duplicidade e só então altera Pendente -> Pago.
+                updated=settle_payment_approved(payment)
+                with connection() as db:
+                    current=db.execute('SELECT payment_status FROM orders WHERE id=?',(oid,)).fetchone()
+                    linked=db.execute('SELECT payment_id FROM mp_checkout_registry WHERE order_id=?',(oid,)).fetchone()
+                if not current or current['payment_status']!='pago' or not linked or linked['payment_id']!=pid:
+                    return self.fail(409,'Pagamento verificado, mas o pedido não foi conciliado. Confira o diagnóstico do webhook.')
+                return self.send(200,{'ok':True,'order_id':oid,'payment_status':'pago',
+                    'provider_status':'approved','updated':updated,'payment_id':pid,
+                    'message':'Pagamento real conciliado e validado pela API. Nenhuma cobrança nova foi criada.'})
             if path == '/api/admin/setup':
                 return self.fail(403,'Administrador configurado somente pelas variaveis privadas da Railway.')
             if path == '/api/admin/login':
@@ -1052,7 +1094,7 @@ class Handler(BaseHTTPRequestHandler):
                         db.execute('UPDATE production_jobs SET state=?,updated_at=? WHERE order_id=?',
                                    ('entregue',now(),oid))
                 return self.send(200,{'ok':True})
-            if path in ('/api/client/checkout', '/api/admin/verify-payment'):
+            if path == '/api/client/checkout':
                 return self.fail(403,'Pagamentos indisponiveis nesta versao online de demonstracao.')
             return self.fail(404,'Endpoint não encontrado.')
         except ValueError as exc:

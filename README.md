@@ -1,3 +1,15 @@
+# StayVision Studio V1 — Etapa 10: conciliação segura de pagamentos já recebidos
+
+Esta atualização corrige a função antiga no **painel de pedidos**, que mostrava "Pagamentos indisponíveis nesta versão online de demonstração". Depois de receber um Pix real, o administrador pode consultar o ID numérico existente na API oficial do Mercado Pago e, após verificação rigorosa, vincular o pagamento ao pedido **sem gerar nova cobrança**.
+
+**Uso:** após instalar e dar Ctrl+F5, abra o pedido → **Conciliar pagamento real já recebido** → informe o ID numérico da operação no Mercado Pago → **Conferir e conciliar pagamento**. O servidor só marca `pago` após confirmar na API: transação de produção aprovada, BRL, valor exato, pedido, vendedor e preferência da própria StayVision. Funciona mesmo com novos checkouts bloqueados, mas exige `STAYVISION_MP_AUTO_CONFIRM=1`. Uma consulta inválida não altera nada. O mesmo pagamento não pode ser vinculado a pedidos diferentes.
+
+A integração de **notificações webhook** ainda precisa ser diagnosticada porque esse primeiro Pix não foi atualizado automaticamente. Essa nova conciliação é um mecanismo seguro de recuperação para o pedido já pago, **não prova que os próximos pagamentos serão confirmados automaticamente**. Antes de lançar, confira eventos de webhook e corrija a causa de qualquer falha.
+
+**Não pagar novamente. Não abrir vendas públicas. Não incluir credenciais, dados pessoais ou banco no GitHub. Preservar o volume Railway `/data`.** O modo `restricted` ou `locked` pode ser mantido, assim como a ausência de `STAYVISION_MP_PUBLIC_LAUNCH`.
+
+---
+
 # StayVision Studio V1 — Etapa 9: checkout completo, pronto para testes de lançamento
 
 Esta é uma atualização **pré-lançamento** da V1 (visual verde-escuro/creme preservado). Foi construída em cima da Etapa 8.2, que já confirmou a identidade do vendedor. Ela **não ativa pagamentos reais quando instalada**: a configuração padrão permanece bloqueada, independentemente de o domínio ser público. Nenhum Access Token, senha, Webhook Secret, banco de dados ou fotos de clientes está incluído neste pacote.

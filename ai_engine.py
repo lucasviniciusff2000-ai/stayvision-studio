@@ -36,97 +36,59 @@ def _mean_luma(image: Image.Image) -> float:
 
 
 def enhance_image(source: Path, destination: Path, style: str = 'natural') -> dict:
-    """Photo Engine V2: architecture-preserving computational photo restoration."""
-    from photo_engine_v2 import enhance_photo_v2, PhotoEngineError
+    """Photo Engine V3: architecture-preserving adaptive computational restoration."""
+    from photo_engine_v3 import enhance_photo_v3, PhotoEngineError
     try:
-        return enhance_photo_v2(source, destination, style=style,
+        return enhance_photo_v3(source, destination, style=style,
                                 auto_level=os.getenv('STAYVISION_PHOTO_AUTO_LEVEL', '0') == '1')
     except PhotoEngineError as exc:
         raise AIEngineError(str(exc)) from exc
 
 
-def _scene_frame(source: Path, dest: Path, size: tuple[int,int], spatial: bool) -> None:
-    """Fit full room photo on a soft-fill backdrop; no stretched/cropped geometry."""
-    with Image.open(source) as im:
-        original = ImageOps.exif_transpose(im).convert('RGB')
-    w,h = size
-    fill = ImageOps.fit(original,(w,h),Image.Resampling.LANCZOS)
-    fill = fill.filter(ImageFilter.GaussianBlur(25))
-    fill = ImageEnhance.Brightness(fill).enhance(0.45)
-    foreground = original.copy()
-    foreground.thumbnail((w,h),Image.Resampling.LANCZOS)
-    offset = ((w-foreground.width)//2,(h-foreground.height)//2)
-    fill.paste(foreground,offset)
-    if spatial:
-        # Spatial look = simulated framing/parallax on two composited planes.
-        # This is deliberately NOT represented as a depth map or a 3D tour.
-        fill = ImageEnhance.Contrast(fill).enhance(1.035)
-    fill.save(dest, format='JPEG', quality=88, optimize=True)
+def render_video(image_files: list[Path], destination: Path, spatial: bool = False, aspect: str = 'horizontal',
+                 on_progress: Callable[[int, str], None] | None = None,
+                 progress_start: int = 68, progress_end: int = 97) -> dict:
+    """Video Engine V3: stable subpixel affine, easing and smooth crossfades.
 
-
-def _ffmpeg_scene(source: Path, output: Path, i: int, size: tuple[int,int], duration: int, spatial: bool,
-                  timeout: int = 150) -> None:
-    if not shutil.which('ffmpeg'):
-        raise AIEngineError('FFmpeg não instalado. Veja as instruções do Dockerfile.')
-    w,h=size; fps=24; frames=fps*duration
-    # Small cinematic push/pan, with a separate direction for each room.
-    z_inc = 0.00075 if spatial else 0.00052
-    start = 1.075 if spatial else 1.045
-    if i%2:
-        pan_x='(iw-iw/zoom)*(1-on/' + str(frames) + ')'
-    else:
-        pan_x='(iw-iw/zoom)*on/' + str(frames)
-    pan_y='(ih-ih/zoom)*0.48'
-    vf=(f'scale={w+120}:{h+68},'
-        f'zoompan=z=\'min({start}+on*{z_inc},1.27)\':x=\'{pan_x}\':y=\'{pan_y}\':d={frames}:s={w}x{h}:fps={fps},'
-        'format=yuv420p')
-    cmd=['ffmpeg','-hide_banner','-loglevel','error','-nostdin','-y',
-         '-i',str(source),'-vf',vf,'-frames:v',str(frames),
-         '-c:v','libx264','-threads','2','-preset','veryfast','-crf','25',
-         '-pix_fmt','yuv420p','-movflags','+faststart','-an',str(output)]
+    Uses OpenCV + FFmpeg; does NOT fabricate new 3D views of the property.
+    """
+    from video_engine_v3 import render_steady_video, SteadyVideoError
     try:
-        result=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout,check=False)
-    except subprocess.TimeoutExpired as exc:
-        raise AIEngineError('A renderização demorou demais. Tente menos fotos.') from exc
-    if result.returncode != 0 or not output.is_file() or output.stat().st_size == 0:
-        msg=result.stderr.decode('utf-8','replace')[-650:]
-        raise AIEngineError('Falha ao gerar o vídeo: '+msg)
+        return render_steady_video(
+            image_files, destination, spatial=spatial, aspect=aspect,
+            motion=os.getenv('STAYVISION_VIDEO_MOTION', 'gentle').strip().lower(),
+            quality=os.getenv('STAYVISION_VIDEO_QUALITY', 'auto').strip().lower(),
+            on_progress=on_progress, progress_start=progress_start, progress_end=progress_end)
+    except SteadyVideoError as exc:
+        raise AIEngineError(str(exc)) from exc
 
 
-def render_video(image_files: list[Path], destination: Path, spatial: bool = False, aspect: str='horizontal',
-                 on_progress: Callable[[int,str],None] | None = None, progress_start: int=68, progress_end: int=97) -> dict:
-    """24 fps MP4 with deterministic motion. No external video/AI API needed."""
-    if not image_files:
-        raise AIEngineError('Nenhuma foto disponível para criar o vídeo.')
-    if not shutil.which('ffmpeg'):
-        raise AIEngineError('FFmpeg ausente.')
-    # 720p 24fps; Railway CPU-only rendering with two codec threads.
-    if aspect not in ASPECTS: raise AIEngineError('Formato de vídeo inválido.')
-    size=(1280,720) if aspect=='horizontal' else (720,1280)
-    duration=4
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination = destination.resolve()
-    with tempfile.TemporaryDirectory(prefix='stayvision-scenes-') as temp:
-        tmp=Path(temp)
-        paths=[]
-        for ix, path in enumerate(image_files):
-            canvas=tmp / f'canvas{ix:02d}.jpg'
-            movie=tmp / f'clip{ix:02d}.mp4'
-            _scene_frame(path,canvas,size,spatial)
-            _ffmpeg_scene(canvas,movie,ix,size,duration,spatial)
-            paths.append(movie)
-            if on_progress: on_progress(int(progress_start + (ix+1)/len(image_files)*(progress_end-progress_start)),f'Vídeo: cena {ix+1} de {len(image_files)}')
-        concat=tmp / 'scenes.txt'
-        concat.write_text(''.join("file '"+p.name+"'\n" for p in paths),encoding='utf-8')
-        cmd=['ffmpeg','-hide_banner','-loglevel','error','-nostdin','-y',
-             '-f','concat','-safe','0','-i',str(concat),'-c','copy','-movflags','+faststart',str(destination)]
-        result=subprocess.run(cmd,cwd=tmp,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=120,check=False)
-        if result.returncode or not destination.is_file() or destination.stat().st_size==0:
-            raise AIEngineError('Erro na montagem do vídeo: '+result.stderr.decode('utf-8','replace')[-550:])
-    return {'file':destination.name,'size_bytes':destination.stat().st_size,'resolution':f'{size[0]}x{size[1]}',
-            'duration_seconds':len(image_files)*duration,'frames_per_second':24,
-            'mode':'movimento espacial ilustrativo 2.5D' if spatial else 'video cinematografico 2D',
-            'warning':'Não é reconstrução 3D real.' if spatial else 'Criado a partir de fotos estáticas.'}
+def _make_contact_sheet(inputs: list[Path], processed: list[Path], output: Path) -> None:
+    """Review-friendly side-by-side contact sheet. Input files remain unchanged."""
+    from PIL import ImageDraw, ImageFont
+    cards=[]
+    max_pairs=min(6,len(inputs))
+    for original,enhanced in zip(inputs[:max_pairs],processed[:max_pairs]):
+        with Image.open(original) as left, Image.open(enhanced) as right:
+            a=ImageOps.exif_transpose(left).convert('RGB')
+            b=ImageOps.exif_transpose(right).convert('RGB')
+            size=(640,400)
+            def fit(photo):
+                canvas=Image.new('RGB',size,(247,248,245))
+                photo.thumbnail(size,Image.Resampling.LANCZOS)
+                canvas.paste(photo,((size[0]-photo.width)//2,(size[1]-photo.height)//2))
+                return canvas
+            card=Image.new('RGB',(1280,432),'white')
+            card.paste(fit(a),(0,32));card.paste(fit(b),(640,32))
+            draw=ImageDraw.Draw(card)
+            draw.text((14,10),'ORIGINAL  •  antes',fill=(35,50,39))
+            draw.text((654,10),'STAYVISION V3  •  depois',fill=(35,50,39))
+            cards.append(card)
+    if not cards:return
+    sheet=Image.new('RGB',(1280,432*len(cards)),(255,255,255))
+    for i,card in enumerate(cards):sheet.paste(card,(0,432*i))
+    output.parent.mkdir(parents=True,exist_ok=True)
+    sheet.save(output,format='JPEG',quality=91,subsampling=0,optimize=True)
 
 
 def run_pipeline(image_paths: list[Path], output_dir: Path, mode: str='photo', style: str='natural', aspect: str='horizontal',
@@ -151,9 +113,15 @@ def run_pipeline(image_paths: list[Path], output_dir: Path, mode: str='photo', s
     with zipfile.ZipFile(bundle,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=5) as z:
         for image in processed: z.write(image,arcname='fotos/'+image.name)
     artifacts=[{'name':bundle.name,'label':'Fotos tratadas (ZIP)','type':'photos','size_bytes':bundle.stat().st_size}]
-    manifest={'engine_version':'stayvision-photo-v2.0-video-v1.0','mode':mode,'style':style,
+    contact=output_dir/'Comparativo_StayVision_V3.jpg'
+    _make_contact_sheet(image_paths,processed,contact)
+    artifacts.append({'name':contact.name,'label':'Comparação original × tratada (até 6 fotos)','type':'review','size_bytes':contact.stat().st_size})
+    report=output_dir/'Relatorio_Qualidade_V3.json'
+    report.write_text(json.dumps({'engine':'V3','photos':photos,'notice':'Indicadores automatizados não comprovam qualidade comercial; revise visualmente.'},ensure_ascii=False,indent=2),encoding='utf-8')
+    artifacts.append({'name':report.name,'label':'Relatório de qualidade e limitações (JSON)','type':'qa','size_bytes':report.stat().st_size})
+    manifest={'engine_version':'stayvision-photo-v3.0-video-v3.0','mode':mode,'style':style,
               'photos':photos,'artifacts':artifacts,'aspect':aspect,
-              'integrity':'Processamento fotográfico não generativo. Não inventa paredes, móveis ou detalhes ausentes.',
+              'integrity':'Edição computacional preservadora da realidade; não inventa paredes, móveis, água, vegetação ou detalhes ausentes.',
               'tour_3d':'não disponível; módulo de reconstrução real reservado para futura integração'}
     if mode in ('video','spatial','complete'):
         do_video = mode in ('video','complete')
@@ -162,7 +130,7 @@ def run_pipeline(image_paths: list[Path], output_dir: Path, mode: str='photo', s
         if do_video:
             dest=output_dir/'Video_StayVision.mp4'
             video=render_video(processed,dest,spatial=False,aspect=aspect,on_progress=on_progress,progress_start=68,progress_end=82 if do_spatial else 96)
-            artifacts.append({'name':dest.name,'label':'Vídeo cinematográfico MP4','type':'video',**video})
+            artifacts.append({'name':dest.name,'label':'Vídeo estável V3 · MP4','type':'video',**video})
         if do_spatial:
             dest=output_dir/'Visual_Espacial_Experimental.mp4'
             video=render_video(processed,dest,spatial=True,aspect=aspect,on_progress=on_progress,progress_start=82 if do_video else 68,progress_end=97)

@@ -1,0 +1,15 @@
+STAYVISION PHOTO ENGINE V3 + VIDEO V2
+
+1) Leia README_ETAPA13_QUALIDADE_V3.md.
+2) Guarde backup recente do volume /data. Não apague nem recrie o volume.
+3) Envie os arquivos extraídos deste ZIP para a RAIZ do GitHub, preservando static/.
+4) Railway Active -> painel -> pedido -> Produção inteligente.
+5) Selecione Foto / Claro e gere fotos + comparativo + relatório.
+6) Verifique manualmente antes de entregar. NÃO ABRA O CHECKOUT PUBLICO.
+7) Para testar fotos no seu Windows sem Railway:
+   pip install -r requirements.txt
+   python avaliar_photo_v3.py "C:\Fotos-Imovel" --estilo claro
+
+LIMITES: V3 melhora luz/cor/ruído; não recupera pixels perdidos via mágica.
+Super-resolução neural precisa de pesos treinados; tour 3D real não está disponível.
+Pagamentos não são modificados por esta atualização.

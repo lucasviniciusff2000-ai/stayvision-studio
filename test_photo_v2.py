@@ -51,7 +51,7 @@ class PhotoV2Tests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as t:
             p=Path(t)
             results=run_pipeline([src],p,mode='photo',style='premium')
-            self.assertEqual(results['engine_version'],'stayvision-photo-v2.0-video-v1.0')
+            self.assertEqual(results['engine_version'],'stayvision-photo-v3.0-video-v3.0')
             self.assertTrue((p/'Fotos_StayVision.zip').is_file())
             self.assertIn('aviso_resolucao',results['photos'][0]['source_quality'])
             self.assertTrue(results['photos'][0]['quality_notice'])

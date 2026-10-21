@@ -1,0 +1,11 @@
+STAYVISION — VIDEO ENGINE V3 ESTÁVEL
+
+1. Leia README_ETAPA14_VIDEO_V3.md
+2. Mantenha o backup do volume /data.
+3. Extraia o ZIP e envie os arquivos da raiz ao GitHub.
+4. O Dockerfile deve copiar video_engine_v3.py.
+5. Railway Active → painel → Pedidos → Produção inteligente.
+6. Escolha vídeo V3 e baixe o MP4 para revisar antes da entrega.
+7. Sem vendas públicas até resolver confirmação automática do Pix.
+
+Sem cobrança adicional, sem IA generativa, sem criação de 3D real.

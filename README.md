@@ -1,3 +1,9 @@
+# StayVision Studio — Photo V3 / Video V3
+
+**Etapa 14: vídeo com movimento subpixel estabilizado e transições suaves. Consulte `README_ETAPA14_VIDEO_V3.md`.**
+
+**NOVO: Abra `README_ETAPA13_QUALIDADE_V3.md` para o Photo Engine V3 e Video V2, com testes e instruções.**
+
 **NOVO: Veja `README_ETAPA12_PHOTO_V2.md` para a atualização fotográfica V2.**
 
 # NOVA VERSÃO: STAYVISION STUDIO ETAPA 11 — FOTOS E VÍDEOS

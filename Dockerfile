@@ -8,7 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
     && pip install --no-cache-dir -r requirements.txt
 COPY server_online.py /app/server_online.py
 COPY ai_engine.py /app/ai_engine.py
+COPY video_engine_v3.py /app/video_engine_v3.py
 COPY photo_engine_v2.py /app/photo_engine_v2.py
+COPY photo_engine_v3.py /app/photo_engine_v3.py
 COPY payments_readiness.py /app/payments_readiness.py
 COPY payment_reconciliation.py /app/payment_reconciliation.py
 COPY checkout_production.py /app/checkout_production.py

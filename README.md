@@ -1,3 +1,11 @@
+**NOVO: Veja `README_ETAPA12_PHOTO_V2.md` para a atualização fotográfica V2.**
+
+# NOVA VERSÃO: STAYVISION STUDIO ETAPA 11 — FOTOS E VÍDEOS
+
+**Comece por `README_ETAPA11_IA.md`.** Esta atualização adiciona o Creative Engine (tratamento de fotos, vídeos 16:9 / 9:16, efeito espacial ilustrativo 2.5D e planos para futuro tour 3D). O documento abaixo é o histórico financeiro da Etapa 10, mantido para referência.
+
+---
+
 # StayVision Studio V1 — Etapa 10: conciliação segura de pagamentos já recebidos
 
 Esta atualização corrige a função antiga no **painel de pedidos**, que mostrava "Pagamentos indisponíveis nesta versão online de demonstração". Depois de receber um Pix real, o administrador pode consultar o ID numérico existente na API oficial do Mercado Pago e, após verificação rigorosa, vincular o pagamento ao pedido **sem gerar nova cobrança**.

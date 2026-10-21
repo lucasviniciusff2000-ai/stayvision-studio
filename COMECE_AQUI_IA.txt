@@ -1,0 +1,20 @@
+STAYVISION STUDIO - ETAPA 11 - FOTOS E VIDEO (VERSÃO PRÉ-LANÇAMENTO)
+
+1. NÃO mexa no Pix ou nas chaves do Mercado Pago.
+2. Guarde o backup local do volume Railway /data.
+3. Extraia este ZIP e substitua os arquivos do repositório GitHub (na raiz).
+4. Aguarde Railway Active. Se estiver com deploys pausados, espere a normalização.
+5. Painel → Pedidos → Abrir → Produção inteligente de fotos e vídeos.
+6. Selecione Fotos / Video / Espacial experimental / Completo → Iniciar.
+7. Aguarde, baixe os resultados, revise e entregue MANUALMENTE após o pagamento.
+
+MANTENHA AS VENDAS PÚBLICAS BLOQUEADAS.
+STAYVISION_AI_AUTO_PROCESS=0 (padrão; só ligar depois de validar o webhook).
+
+Fotos: correção fotográfica adaptativa local, NÃO IA generativa.
+Video: movimento cinematográfico a partir de fotos, SEM música.
+Espacial: simulação ilustrativa 2.5D, NÃO um tour 3D real.
+Tour 3D real: projeto arquitetural documentado, ainda não implementado.
+
+Guia completo: README_ETAPA11_IA.md
+Plano 3D: PLANO_3D_VERDADEIRO.md

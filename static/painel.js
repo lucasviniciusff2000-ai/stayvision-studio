@@ -3,7 +3,7 @@ const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt
 const money=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(v);
 const labels={recebido:'Recebido',aguardando_pagamento:'Pagamento pendente',em_producao:'Em produção',em_revisao:'Em revisão',concluido:'Concluído',cancelado:'Cancelado'};
 async function api(path,options={}){let r=await fetch(path,{credentials:'same-origin',...options});let data=await r.json().catch(()=>({error:'Resposta inválida'}));if(!r.ok)throw Error(data.error||'Requisição falhou');return data;}
-let currentOrder=null,orders=[],settings=null,initialized=false;
+let currentOrder=null,orders=[],settings=null,initialized=false,aiPolling=null;
 async function start(){const auth=await api('/api/admin/me');initialized=auth.initialized;if(!auth.authenticated){showLogin();return;}showPanel();await Promise.all([refresh(),loadSettings(),loadLeads()]);}
 function showLogin(){ $('#login-layout').classList.remove('hidden');$('#admin-layout').classList.add('hidden');if(!initialized){$('#auth-desc').textContent='Admin ainda não configurado. Defina STAYVISION_ADMIN_USER e STAYVISION_ADMIN_PASSWORD nas variáveis privadas da Railway.';$('#auth-submit').disabled=true;}}
 function showPanel(){$('#login-layout').classList.add('hidden');$('#admin-layout').classList.remove('hidden');}
@@ -18,9 +18,42 @@ const detail=(name,v)=>`<div><div class="detail-label">${name}</div><div class="
 async function openOrder(id){try{let d=await api('/api/admin/orders/'+encodeURIComponent(id)),o=d.order;if(!o)throw Error('Pedido não localizado.');currentOrder=o;$('#order-editor').classList.remove('hidden');$('#order-heading').textContent='Pedido '+o.id;$('#order-meta').innerHTML=detail('Nome',o.name)+detail('E-mail',o.email)+detail('Telefone',o.phone)+detail('Local',o.city)+detail('Imóvel',o.property_type)+detail('Serviço',o.plan_name)+detail('Preço',money(o.price))+detail('Criado',new Date(o.created_at).toLocaleString('pt-BR'))+`<div style="grid-column:1/-1">${detail('Briefing',o.notes||'Sem observações')}</div>`;
 $('#order-files').innerHTML=d.files.map(f=>`<div><a href="/api/admin/files/${f.id}" target="_blank" rel="noopener">↗ ${h(f.name)}</a><small style="color:#859286"> · ${(f.size/1048576).toFixed(2)} MB</small></div>`).join('')||'<p>Sem arquivos.</p>';
 $('#tracking-link').href='/acompanhar?token='+encodeURIComponent(o.customer_token);
-$('#edit-status').value=o.status;$('#edit-payment').value=o.payment_status;$('#edit-note').value=o.admin_note;$('#update-feedback').textContent='';$('#delivery-feedback').textContent='';$('#verify-feedback').textContent='';$('#mp-payment-id').value='';$('#order-editor').scrollIntoView({behavior:'smooth'});
+$('#edit-status').value=o.status;$('#edit-payment').value=o.payment_status;$('#edit-note').value=o.admin_note;$('#update-feedback').textContent='';$('#delivery-feedback').textContent='';$('#verify-feedback').textContent='';$('#mp-payment-id').value='';refreshAi(o.id);$('#order-editor').scrollIntoView({behavior:'smooth'});
 }catch(err){alert(err.message);}}
-$('#close-order').addEventListener('click',()=>{$('#order-editor').classList.add('hidden');currentOrder=null;});
+$('#close-order').addEventListener('click',()=>{$('#order-editor').classList.add('hidden');currentOrder=null;if(aiPolling){clearTimeout(aiPolling);aiPolling=null;}});
+async function refreshAi(oid){
+ if(aiPolling){clearTimeout(aiPolling);aiPolling=null;}
+ if(!oid||!currentOrder||currentOrder.id!==oid)return;
+ const feedback=$('#ai-feedback'),results=$('#ai-results'),wrap=$('#ai-progress-wrap'),fill=$('#ai-progress-fill');
+ try{
+  const response=await api('/api/admin/ai/status?id='+encodeURIComponent(oid));
+  if(!currentOrder||currentOrder.id!==oid)return;
+  const runs=response.runs||[],run=runs[0];
+  if(!run){feedback.textContent='Pronto para tratar as fotos deste pedido.';results.innerHTML='';wrap.hidden=true;$('#ai-generate').disabled=false;return;}
+  feedback.textContent=(run.state==='pronto'?'✓ ':run.state==='falhou'?'Erro: ':run.state==='interrompido'?'Interrompido: ':'Processando: ')+(run.message||run.state);
+  wrap.hidden=!['processando','na_fila'].includes(run.state);
+  fill.style.width=(run.progress||0)+'%';
+  $('#ai-generate').disabled=wrap.hidden===false;
+  if(run.state==='pronto'){
+   let artifacts=(run.artifacts||[]).filter(a=>a.name);
+   results.innerHTML='<b style="font-size:12px;color:#446c46">Arquivos para revisão — nenhum é enviado automaticamente ao cliente:</b>'+artifacts.map(a=>{
+     const url='/api/admin/ai/file?run='+encodeURIComponent(run.id)+'&name='+encodeURIComponent(a.name);
+     return '<div class="ai-file"><div><b>'+h(a.label||a.name)+'</b><br><small>'+h(a.name)+'</small></div><a href="'+url+'">Baixar ↧</a></div>';
+   }).join('')+((run.previews||[]).length?'<div class="ai-preview">'+run.previews.map(name=>'<img loading="lazy" alt="Prévia tratada" src="/api/admin/ai/file?run='+encodeURIComponent(run.id)+'&name='+encodeURIComponent('photos/'+name)+'">').join('')+'</div>':'')+((run.quality_warnings||[]).length?'<div class="notice" style="margin:12px 0;color:#6b4c20;background:#fff8e7"><b>Atenção à resolução original</b><p>'+run.quality_warnings.map(h).join('<br>')+'</p><small>Para qualidade de anúncio, solicite fotos originais em alta resolução, não imagens comprimidas por mensageiros. Nenhum filtro recupera os detalhes ausentes.</small></div>':'')+((artifacts.length)?'<p style="font-size:11px;color:#697967">Revise o resultado e utilize “Entregar arquivo final” somente após conferir o pagamento.</p>':'');
+  } else {results.innerHTML='';}
+  if(!wrap.hidden)aiPolling=setTimeout(()=>refreshAi(oid),2300);
+ }catch(err){feedback.textContent='Erro ao consultar produção: '+err.message;wrap.hidden=true;}
+}
+$('#ai-generate').addEventListener('click',async()=>{
+ if(!currentOrder)return;
+ const oid=currentOrder.id,mode=$('#ai-mode').value,style=$('#ai-style').value,aspect=$('#ai-aspect').value;
+ const btn=$('#ai-generate');btn.disabled=true;
+ $('#ai-feedback').textContent='Iniciando processamento. Aguarde...';
+ try{
+  await api('/api/admin/ai/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:oid,mode,style,aspect})});
+  await refreshAi(oid);
+ }catch(err){$('#ai-feedback').textContent='Não foi possível iniciar: '+err.message;btn.disabled=false;}
+});
 $('#update-form').addEventListener('submit',async e=>{e.preventDefault();if(!currentOrder)return;try{await api('/api/admin/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:currentOrder.id,status:$('#edit-status').value,payment_status:$('#edit-payment').value,admin_note:$('#edit-note').value})});$('#update-feedback').textContent='Alterações salvas com sucesso.';await refresh();}catch(err){$('#update-feedback').textContent=err.message;}});
 $('#verify-payment-form').addEventListener('submit',async e=>{
  e.preventDefault();if(!currentOrder)return;

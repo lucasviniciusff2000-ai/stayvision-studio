@@ -1,0 +1,11 @@
+STAYVISION PHOTO ENGINE V2 — ETAPA 12
+
+1) LEIA README_ETAPA12_PHOTO_V2.md
+2) Faça backup atualizado do /data da Railway.
+3) Envie os arquivos extraídos para a raiz do GitHub StayVision.
+4) Aguarde novo deploy Railway Active.
+5) Painel > Pedido > Produção inteligente > Fotos tratadas.
+
+Não libera vendas, não faz novos pagamentos, não modifica fotos originais.
+O modelo neural FSRCNN opcional NAO acompanha o pacote.
+A qualidade depende das fotos originais em alta resolução.

@@ -28,6 +28,7 @@ from payments_readiness import pix_production_report, config_report, ReadinessEr
 from payment_reconciliation import fetch_payment, review_payment, PaymentLookupUnavailable, audit_summary
 from checkout_production import gate as production_gate, public_sales_ready, build_preference, create_preference, CheckoutError
 from seller_identity import check_seller_identity, require_seller_identity, SellerIdentityError
+from ai_engine import run_pipeline, AIEngineError, MODES as AI_MODES, STYLES as AI_STYLES, ASPECTS as AI_ASPECTS
 
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / 'static'
@@ -35,6 +36,9 @@ DATA = Path(os.getenv('STAYVISION_DATA_DIR', str(BASE / 'dados'))).resolve()
 UPLOADS = DATA / 'uploads'
 DELIVERIES = DATA / 'entregas'
 DB = DATA / 'stayvision.db'
+def ai_outputs():
+    return DATA / 'ai_gerados'
+AI_RENDER_LOCK = threading.Lock()
 DEMO_ORDERS = os.getenv('STAYVISION_ENABLE_DEMO_ORDERS', '0') == '1'
 RATE_LOCK = threading.Lock()
 ATTEMPTS = {}
@@ -111,6 +115,7 @@ def init_db():
     DATA.mkdir(parents=True, exist_ok=True)
     UPLOADS.mkdir(exist_ok=True)
     DELIVERIES.mkdir(exist_ok=True)
+    ai_outputs().mkdir(exist_ok=True)
     with connection() as db:
         db.execute('PRAGMA journal_mode=WAL')
         db.execute('''CREATE TABLE IF NOT EXISTS users (
@@ -148,6 +153,13 @@ def init_db():
             idempotency_key TEXT NOT NULL UNIQUE, stage TEXT NOT NULL,
             created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
             FOREIGN KEY(order_id) REFERENCES orders(id))''')
+        db.execute('''CREATE TABLE IF NOT EXISTS ai_runs (
+            id TEXT PRIMARY KEY, order_id TEXT NOT NULL, mode TEXT NOT NULL,
+            style TEXT NOT NULL, aspect TEXT NOT NULL DEFAULT 'horizontal', state TEXT NOT NULL, progress INTEGER NOT NULL,
+            message TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+            FOREIGN KEY(order_id) REFERENCES orders(id))''')
+        # Process restarts must not leave orphaned jobs falsely shown as rendering.
+        db.execute("UPDATE ai_runs SET state='interrompido',message='Servidor reiniciado; inicie novamente se necessário',updated_at=? WHERE state IN ('processando','na_fila')", (now(),))
         db.execute('''CREATE TABLE IF NOT EXISTS mp_webhook_audit (
             request_id TEXT PRIMARY KEY, received_at TEXT NOT NULL,
             event_type TEXT NOT NULL, payment_id TEXT NOT NULL,
@@ -421,6 +433,10 @@ def settle_payment_approved(payment):
         db.execute("UPDATE orders SET payment_status='pago',updated_at=? WHERE id=?",(now(),oid))
         ensure_job(db,oid,rec['plan_code'])
         # Never mark delivery as complete here: fulfillment requires human review.
+    if os.getenv('STAYVISION_AI_AUTO_PROCESS','0') == '1':
+        try: launch_ai_after_confirmed_payment(oid, rec['plan_code'])
+        except Exception as exc:
+            print('[StayVision AI] Falha ao agendar pós-pagamento:',type(exc).__name__, file=sys.stderr)
     return True
 
 
@@ -462,6 +478,78 @@ def settle_payment_reversal(payment):
         db.execute('UPDATE orders SET payment_status=?,updated_at=? WHERE id=?',('estornado',now(),oid))
     return True
 
+
+
+
+def launch_ai_after_confirmed_payment(order_id, plan_code):
+    """Opt-in: verified payments may pre-render files; NEVER deliver to client."""
+    if os.getenv('STAYVISION_AI_AUTO_PROCESS','0') != '1': return False
+    mode = {'photo':'photo','video':'video','partner':'complete'}.get(plan_code)
+    if mode is None: return False
+    with connection() as db:
+        done=db.execute('SELECT 1 FROM ai_runs WHERE order_id=? LIMIT 1',(order_id,)).fetchone()
+        files=db.execute('SELECT COUNT(*) FROM order_files WHERE order_id=?',(order_id,)).fetchone()[0]
+    if done or not 1<=files<=12: return False
+    if not AI_RENDER_LOCK.acquire(blocking=False): return False
+    try:
+        rid=secrets.token_hex(12)
+        with connection() as db:
+            db.execute('INSERT INTO ai_runs(id,order_id,mode,style,aspect,state,progress,message,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                       (rid,order_id,mode,'natural','horizontal','na_fila',0,'Processamento automático após Pix aprovado',now(),now()))
+        threading.Thread(target=run_ai_in_background,args=(rid,order_id,mode,'natural','horizontal'),daemon=True).start()
+    except Exception:
+        AI_RENDER_LOCK.release()
+        raise
+    return True
+
+def run_ai_in_background(run_id, order_id, mode, style, aspect):
+    """Only starts after AI_RENDER_LOCK is reserved by an authenticated admin."""
+    try:
+        with connection() as db:
+            db.execute("UPDATE ai_runs SET state='processando',message='Preparando fotografias',progress=1,updated_at=? WHERE id=?",(now(),run_id))
+            images=db.execute('SELECT stored_name FROM order_files WHERE order_id=? ORDER BY id LIMIT 13',(order_id,)).fetchall()
+        if len(images)>12: raise AIEngineError('O limite de processamento é de 12 fotos.')
+        files=[]
+        for row in images:
+            filename=str(row['stored_name'])
+            if not re.fullmatch(r'[A-Za-z0-9._-]{3,100}',filename): raise AIEngineError('Nome de arquivo inválido.')
+            files.append(UPLOADS/order_id/filename)
+        if not files: raise AIEngineError('Este pedido não possui fotografias.')
+        def progress(percent,msg):
+            with connection() as db:
+                db.execute('UPDATE ai_runs SET progress=?,message=?,updated_at=? WHERE id=?',
+                           (min(99,int(percent)),str(msg)[:180],now(),run_id))
+        run_pipeline(files,ai_outputs()/order_id/run_id,mode,style,aspect,progress)
+        with connection() as db:
+            db.execute("UPDATE ai_runs SET state='pronto',progress=100,message='Produção pronta para revisão',updated_at=? WHERE id=?",(now(),run_id))
+            db.execute("UPDATE production_jobs SET state='revisao',updated_at=? WHERE order_id=?",(now(),order_id))
+    except Exception as exc:
+        # Detailed failure stays in Railway logs; responses show only technical class/general message.
+        print('[StayVision AI]',type(exc).__name__,str(exc)[:350],file=sys.stderr,flush=True)
+        message=str(exc)[:190] if isinstance(exc,AIEngineError) else 'Erro técnico de renderização. Confira logs na Railway.'
+        try:
+            with connection() as db:
+                db.execute("UPDATE ai_runs SET state='falhou',message=?,updated_at=? WHERE id=?",(message,now(),run_id))
+        except Exception: pass
+    finally:
+        AI_RENDER_LOCK.release()
+
+
+def ai_run_summary(row):
+    out=dict(row)
+    out['artifacts']=[]
+    out['previews']=[]
+    out['quality_warnings']=[]
+    if out['state']=='pronto':
+        manifest=ai_outputs()/out['order_id']/out['id']/'manifest.json'
+        if manifest.is_file():
+            try:
+                result=json.loads(manifest.read_text(encoding='utf-8'))
+                out['artifacts']=result.get('artifacts',[])
+                out['previews']=[p['file'] for p in result.get('photos',[]) if re.fullmatch(r'\d{2}_stayvision\.jpg',p.get('file',''))]
+                out['quality_warnings']=[f"Foto {i+1}: {p['quality_notice']}" for i,p in enumerate(result.get('photos',[])) if p.get('quality_notice')][:12]
+            except (OSError,ValueError): pass
+    return out
 
 class Handler(BaseHTTPRequestHandler):
     server_version = 'StayVision/1.0'
@@ -544,6 +632,54 @@ class Handler(BaseHTTPRequestHandler):
             with connection() as db:
                 setup = db.execute('SELECT COUNT(*) as c FROM users').fetchone()['c'] > 0
             return self.send(200, {'authenticated':bool(self.user()), 'initialized': setup})
+        if path == '/api/admin/ai/status':
+            if not self.require_admin(): return
+            oid=q.get('id',[''])[0]
+            if not re.fullmatch(r'SV-[A-Z0-9-]{5,40}',oid): return self.fail(400,'Pedido inválido.')
+            with connection() as db:
+                exists=db.execute('SELECT id FROM orders WHERE id=?',(oid,)).fetchone()
+                rows=db.execute('SELECT * FROM ai_runs WHERE order_id=? ORDER BY created_at DESC LIMIT 8',(oid,)).fetchall()
+            if not exists: return self.fail(404,'Pedido não encontrado.')
+            return self.send(200,{'runs':[ai_run_summary(row) for row in rows],
+                'methods':{'photos':'melhoria fotográfica local','video':'animação cinematográfica MP4',
+                           'spatial':'simulação espacial 2.5D, não é reconstrução 3D'}})
+        if path == '/api/admin/ai/file':
+            if not self.require_admin(): return
+            rid=q.get('run',[''])[0]; filename=q.get('name',[''])[0]
+            if not re.fullmatch(r'[a-f0-9]{24}',rid): return self.fail(400,'Execução inválida.')
+            if not re.fullmatch(r'(?:photos/)?[A-Za-z0-9._-]{3,100}',filename):
+                return self.fail(400,'Arquivo inválido.')
+            with connection() as db:
+                run=db.execute("SELECT order_id,state FROM ai_runs WHERE id=?",(rid,)).fetchone()
+            if not run or run['state']!='pronto': return self.fail(404,'Arquivo ainda não disponível.')
+            allowed=ai_outputs()/run['order_id']/rid
+            file=allowed/filename
+            if not file.resolve().is_relative_to(allowed.resolve()) or not file.is_file():
+                return self.fail(404,'Arquivo não localizado.')
+            manifest=allowed/'manifest.json'
+            try:
+                artifacts=json.loads(manifest.read_text(encoding='utf-8')).get('artifacts',[])
+            except (ValueError,OSError): return self.fail(404,'Manifesto indisponível.')
+            photo_allowed=re.fullmatch(r'photos/\d{2}_stayvision\.jpg',filename) is not None
+            if filename not in [a['name'] for a in artifacts] and not photo_allowed:
+                return self.fail(403,'Arquivo não publicado neste processamento.')
+            mime=mimetypes.guess_type(file.name)[0] or 'application/octet-stream'
+            size=file.stat().st_size
+            self.send_response(200)
+            self.send_header('Content-Type',mime)
+            self.send_header('Content-Length',str(size))
+            self.send_header('Cache-Control','no-store')
+            self.send_header('X-Content-Type-Options','nosniff')
+            self.send_header('Content-Security-Policy',"default-src 'none'; sandbox")
+            if not photo_allowed:
+                self.send_header('Content-Disposition','attachment; filename="'+file.name+'"')
+            self.end_headers()
+            if self.command!='HEAD':
+                try:
+                    with file.open('rb') as content:
+                        shutil.copyfileobj(content,self.wfile,length=128*1024)
+                except (BrokenPipeError,ConnectionResetError): pass
+            return
         if path == '/api/admin/overview':
             if not self.require_admin(): return
             with connection() as db:
@@ -568,7 +704,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif job['delivery_filename'] and job['status']=='concluido': breakdown['entregue'] += 1
                 else: breakdown[job['ai_state'] if job['ai_state'] in breakdown else 'aguardando_integracao'] += 1
             return self.send(200, {'jobs':jobs,'counts':breakdown,
-                'engine_connected':False, 'payment_gateway_configured':False,
+                'engine_connected':True, 'payment_gateway_configured':bool(os.getenv('MP_PRODUCTION_ACCESS_TOKEN')),
                 'payments_enabled':bool(setting('payment_enabled')),
                 'sales_enabled':bool(setting('sales_enabled'))})
         if path == '/api/admin/leads':
@@ -818,6 +954,38 @@ class Handler(BaseHTTPRequestHandler):
             return self.mp_webhook_diagnostic()
         if not self.origin_ok(): return self.fail(403,'Origem inválida.')
         try:
+            if path == '/api/admin/ai/start':
+                if not self.require_admin(): return
+                if self.headers.get('Content-Type','').split(';')[0].strip().lower()!='application/json':
+                    return self.fail(415,'Envie JSON.')
+                if not rate_ok(('admin-ai-render',self.client_address[0]),12,3600):
+                    return self.fail(429,'Limite temporário de renderizações atingido.')
+                data=read_json(self.incoming(2048))
+                oid=str(data.get('id','')).strip()
+                mode=str(data.get('mode','photo')); style=str(data.get('style','natural')); aspect=str(data.get('aspect','horizontal'))
+                if not re.fullmatch(r'SV-[A-Z0-9-]{5,40}',oid) or mode not in AI_MODES or style not in AI_STYLES or aspect not in AI_ASPECTS:
+                    return self.fail(400,'Pedido, modo ou estilo inválido.')
+                with connection() as db:
+                    has=db.execute('SELECT id FROM orders WHERE id=?',(oid,)).fetchone()
+                    cnt=db.execute('SELECT COUNT(*) FROM order_files WHERE order_id=?',(oid,)).fetchone()[0]
+                    active=db.execute("SELECT id FROM ai_runs WHERE order_id=? AND state IN ('processando','na_fila')",(oid,)).fetchone()
+                if not has: return self.fail(404,'Pedido não localizado.')
+                if cnt<1 or cnt>12: return self.fail(409,'São necessárias entre 1 e 12 fotos no pedido.')
+                if active: return self.fail(409,'Este pedido já está sendo processado.')
+                if not AI_RENDER_LOCK.acquire(blocking=False):
+                    return self.fail(409,'Outro pedido está renderizando. Aguarde concluir.')
+                try:
+                    rid=secrets.token_hex(12)
+                    with connection() as db:
+                        db.execute('INSERT INTO ai_runs(id,order_id,mode,style,aspect,state,progress,message,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                                   (rid,oid,mode,style,aspect,'na_fila',0,'Aguardando processamento',now(),now()))
+                    task=threading.Thread(target=run_ai_in_background,args=(rid,oid,mode,style,aspect),daemon=True)
+                    task.start()
+                except Exception:
+                    AI_RENDER_LOCK.release()
+                    raise
+                return self.send(202,{'ok':True,'run_id':rid,'state':'na_fila',
+                    'message':'Renderização iniciada, sem cobrança e sem entrega automática.'})
             if path == '/api/admin/checkout-create':
                 if not self.require_admin(): return
                 payload=read_json(self.incoming(4096))

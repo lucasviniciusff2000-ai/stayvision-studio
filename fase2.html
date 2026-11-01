@@ -1,0 +1,130 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>StayVision Business | Fase 2 — Estúdio de testes</title>
+<style>:root{font-family:Inter,Arial,sans-serif;color:#fff;background:#0c0907}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 90% 0%,#54200c 0,transparent 38%),#090706;color:#eee}header{border-bottom:1px solid #64300f;background:#090807;padding:18px max(20px,calc((100% - 1120px)/2));display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}header strong{letter-spacing:1px;font-size:20px}header strong b{color:#ff6b18}a{color:#ffaa67}nav a{margin-left:12px;font-size:12px}.wrap{max-width:1120px;margin:auto;padding:28px 18px 80px}h1{font-size:clamp(27px,4vw,47px);margin:5px 0 14px;line-height:1.07}h1 span{color:#ff751f}.eyebrow{font-size:12px;color:#ffa24d;letter-spacing:2px;font-weight:900;text-transform:uppercase}.lead{line-height:1.55;color:#c4b4a9;max-width:800px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}.card{border:1px solid #6b3215;background:linear-gradient(155deg,#22120c 0,#120e0c 70%);padding:22px;border-radius:17px}.card h2{margin:0 0 7px;font-size:22px}.muted{color:#b8a89b;line-height:1.45;font-size:13px}.card p{line-height:1.5}label{display:block;font-size:13px;font-weight:700;margin:17px 0 7px}input{display:block;width:100%;border:1px solid #704630;background:#0b0908;border-radius:10px;padding:13px;color:#fff;outline:none;font:inherit}input:focus{border-color:#ff751f}input[type=file]{font-size:13px}button{background:linear-gradient(100deg,#ff4c11,#ff9b1c);color:#160902;border:0;border-radius:11px;padding:14px 20px;font-weight:900;cursor:pointer;width:100%;margin-top:18px;font-size:14px}button:disabled{opacity:.35;cursor:not-allowed}#generationState{font-size:12px;padding:11px 13px;margin-top:12px;border:1px solid #6b3215;background:#0a0908;border-radius:10px;line-height:1.5;color:#efbea1}#generationState.ready{border-color:#43845a;color:#a4e5b5;background:#102016}#refreshState{width:auto;margin-top:9px;padding:9px 13px;font-size:12px;background:#291914;color:#ffb57c;border:1px solid #7a4228}button.secondary{background:#291914;color:#fbb57c;border:1px solid #7a4228} .notice{border-left:3px solid #ff741c;background:#24170d;padding:12px 15px;margin:18px 0;font-size:13px;line-height:1.5}.noteBad{border-color:#e84539;color:#ffb8ab}#brief{white-space:pre-wrap;background:#090807;border:1px solid #5a2f17;padding:17px;border-radius:11px;font-size:13px;line-height:1.65;min-height:160px}.pill{display:inline-block;color:#ffae67;font-size:11px;border:1px solid #954511;border-radius:99px;padding:5px 10px;margin-right:5px}small{color:#c9b2a3}#output a{display:block;margin-top:10px;font-weight:bold}.rule{height:1px;background:#62321e;margin:17px 0}@media(max-width:760px){.grid{grid-template-columns:1fr}.card{padding:17px}nav a{margin-left:3px}.wrap{padding:20px 12px}header{padding:16px}h1{font-size:33px}}</style></head><body>
+<header><strong><b>✦</b> STAYVISION <small>BUSINESS</small></strong><nav><a href="/">Site (sem mudanças)</a><a href="/revisar">Revisão</a><a href="/completar-premium">Feed Premium 2.9</a></nav></header>
+<main class="wrap"><div class="eyebrow">Fase 2 · Área de testes interna</div><h1>A marca primeiro.<br><span>A arte depois.</span></h1><p class="lead">Painel interno da StayVision. O cliente NÃO acessa esta conferência: ele envia seus dados e nós cuidamos da criação. Você pode verificar gratuitamente a proposta antes de autorizar uma amostra.</p>
+<div class="notice"><strong>Sem cobrança automática.</strong> A prévia local não consome APIs. O Gemini pode ter custo próprio quando ativado. O botão de gerar amostra só funciona se você iniciou o aplicativo com autorização para <b>1 chamada</b> da fal.ai. Nada aqui confirma a qualidade estética sem inspeção humana.</div>
+<div class="grid"><section class="card"><span class="pill">ETAPA 1</span><h2>Informações recebidas do cliente</h2><p class="muted">Se o cliente enviou um logotipo, use-o como referência. Se não enviou, a IA vai propor um símbolo novo para a marca.</p>
+<form id="form"><label for="brand">Nome da empresa</label><input id="brand" required value="Copão Flash" maxlength="45"><label for="activity">Ramo real de atividade</label><input id="activity" required value="Delivery de bebidas e copões" maxlength="100"><label for="instagram">Instagram</label><input id="instagram" required value="@copaoflash"><label for="contact">Contato comercial</label><input id="contact" required value="(47) 99758-2951"><label for="photo">Logotipo existente (opcional — formatos comuns, ajuste automático)</label><input id="photo" type="file" accept="image/*,.heic,.heif,.avif,.tif,.tiff,.bmp"><small id="logoStatus">Sem logotipo: o sistema vai criar uma proposta de identidade nova. Com logotipo: o sistema tentará preservar a identidade existente. Ajuste automático de orientação, dimensões e proporção. Até 26 MB por arquivo.</small><button type="submit" id="analyze">1. Conferir proposta</button><button type="button" id="recover" class="secondary">Recuperar último briefing (sem gastar créditos)</button></form></section>
+<section class="card"><span class="pill">ETAPA 2</span><h2>Conferir a proposta da marca</h2><p class="muted">Confira se a atividade da empresa está correta e se os destaques combinam com o negócio. O cliente não verá esta tela.</p><div id="brief">Nenhuma proposta conferida.</div><details id="technical" style="margin-top:12px"><summary style="cursor:pointer;color:#b8a89b;font-size:12px">Detalhes técnicos (somente operador)</summary><pre id="technicalText" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px"></pre></details><div class="rule"></div><label><input type="checkbox" id="approved" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:8px">Conferi que o ramo, a identidade e os textos combinam com a empresa.</label><div id="generationState" aria-live="polite">Verificando se há uma geração autorizada...</div><button type="button" id="recheck" class="secondary">Corrigir e revalidar briefing salvo (grátis)</button><button type="button" id="dropRef" class="secondary" hidden>Descartar logotipo incompatível e revalidar (grátis)</button><button type="button" id="refreshState">Atualizar autorização da IA</button><button type="button" id="sample" disabled>2. Gerar UMA amostra da identidade</button><small>Esse passo pode consumir créditos da fal.ai. Gera só uma imagem, não o pacote inteiro. Não repita após erro de conexão sem conferir o painel.</small><div id="output"></div></section></div>
+<p class="muted" style="margin-top:24px">Sequência após esta amostra: aprovar o símbolo → gerar cinco capas em um novo teste autorizado → integrar Fotos Business, Vitrine e Premium com reaproveitamento das artes já geradas. Pagamentos continuam desligados.</p></main>
+<script src="/assets/photo_input.js"></script><script>
+let current=null,blocked=true,serverState=null,sending=false;
+const q=s=>document.querySelector(s);
+const asText=v=>Array.isArray(v)?v.join(' • '):v||'—';
+function show(txt){q('#brief').textContent=txt;}
+function status(t,bad=false){q('#output').innerHTML='';let n=document.createElement('div');n.className='notice'+(bad?' noteBad':'');n.textContent=t;q('#output').append(n);}
+function setState(message,ready=false){const n=q('#generationState');n.textContent=message;n.classList.toggle('ready',ready);}
+function renderBrief(b,hasLogo){
+  current=b;const k=b.brief;
+  blocked=Boolean((k.flags&&k.flags.length)||k.brand_mismatch_review);
+  q('#recheck').disabled=!(b.provider==='gemini' && b.id);
+  q('#dropRef').hidden=!(b.provider==='gemini' && b.id && (k.brand_mismatch_review || (k.flags||[]).some(x=>String(x).includes('imagem anexada'))) && hasLogo);
+  show('NEGÓCIO: '+q('#brand').value+'\nATIVIDADE: '+asText(k.segment)+'\nPROPOSTA: '+asText(k.tagline)+'\nIDENTIDADE: '+(hasLogo?'Valorizar e preservar o logotipo enviado.':'Criar um logotipo novo para essa empresa.')+'\nDESTAQUES: '+asText(k.highlights)+'\nPONTOS A CONFERIR: '+(k.flags&&k.flags.length?asText(k.flags):(k.brand_mismatch_review?'Confira se há divergência entre ramo e referências.':'Nenhuma divergência detectada pelas regras.')));
+  q('#technicalText').textContent='FONTE: '+b.provider+' / '+b.model+'\nDIREÇÃO: '+asText(k.visual_style)+'\nSÍMBOLO: '+asText(k.logo_symbol)+'\nPALETA: '+asText(k.accent)+'\nCONCEITOS: '+asText(k.highlight_concepts)+'\nINCERTEZAS: '+asText(k.uncertainties);
+  const warnings=(k.warnings||[]).length;
+  status(blocked?'Há um problema que ainda precisa ser corrigido. Use o botão de revalidar para tentar resolver sem IA.':b.provider==='gemini'?'Briefing Gemini pronto'+(warnings?' • '+warnings+' correções já resolvidas':'')+'. Confira e confirme antes de gerar uma imagem.':'Prévia gratuita, sem Gemini: para gerar, reinicie no modo 2.',blocked);
+}
+function allow(){
+  const imageOn=serverState && serverState.image_ai_enabled===true;
+  const geminiOn=serverState && serverState.ai_ready===true;
+  const remaining=serverState ? Number(serverState.images_remaining||0) : 0;
+  const canGenerate=Boolean(!sending && current && current.provider==='gemini' && !blocked && q('#approved').checked && geminiOn && imageOn && remaining>=1);
+  q('#sample').disabled=!canGenerate;
+  if(sending){setState('Geração solicitada. Aguarde o resultado e NÃO clique novamente.');return;}
+  if(!current){setState('1. Confira a proposta da marca antes de gerar.');return;}
+  if(current.provider!=='gemini'){setState('Briefing gratuito: é necessário iniciar o programa no modo 2 para uma amostra real.');return;}
+  if(blocked){setState('O briefing tem uma incompatibilidade pendente. Clique em Corrigir e revalidar briefing salvo (grátis).');return;}
+  if(!serverState){setState('Não foi possível verificar a autorização. Clique em “Atualizar autorização da IA”.');return;}
+  if(!geminiOn){setState('Gemini não está ativo neste servidor.');return;}
+  if(!imageOn){setState('fal.ai não está ativa neste servidor. Inicie no modo 2.');return;}
+  if(remaining<1){setState('Não há chamadas disponíveis nesta sessão. Nenhuma imagem será cobrada.');return;}
+  if(!q('#approved').checked){setState('IA ativa • '+remaining+' amostra disponível. Marque a caixa de conferência para liberar.',true);return;}
+  setState('IA pronta • '+remaining+' amostra disponível. Botão liberado.',true);
+}
+async function refreshState(){
+  q('#refreshState').disabled=true;
+  try{
+    const r=await fetch('/api/status',{cache:'no-store'});
+    if(!r.ok)throw new Error('Falha HTTP '+r.status);
+    serverState=await r.json();
+  }catch(err){serverState=null;setState('Falha ao consultar a autorização do servidor: '+err.message);}
+  finally{q('#refreshState').disabled=false;allow();}
+}
+async function recheckBrief(removeReference=false){
+  if(!current || current.provider!=='gemini' || !current.id){status('Primeiro recupere ou confira o briefing do Gemini.',true);return;}
+  if(removeReference){
+    if(!window.confirm('A imagem anexada NÃO é o logotipo real desta empresa? Você autoriza removê-la do pedido e criar um símbolo novo?'))return;
+  }
+  q('#recheck').disabled=true;
+  q('#dropRef').disabled=true;
+  try{
+    const body={id:current.id};
+    if(removeReference){body.remove_reference=true;body.confirm='DESCARTAR_REFERENCIA_INCORRETA';}
+    const r=await fetch('/api/fase2/recheck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const b=await r.json();
+    if(!r.ok)throw Error(b.error||'Não foi possível revalidar.');
+    q('#approved').checked=false;
+    renderBrief(b,!!b.has_logo);
+    status(blocked?'Ainda há problemas reais no briefing. NÃO gere antes de corrigir a referência ou os textos.':'Briefing revalidado localmente sem gastar créditos. Revise o resumo e marque a caixa para autorizar uma imagem.',blocked);
+    await refreshState();
+  }catch(ex){status(ex.message,true);}
+  finally{q('#recheck').disabled=false;q('#dropRef').disabled=false;}
+}
+q('#recheck').addEventListener('click',()=>recheckBrief());
+q('#dropRef').addEventListener('click',()=>recheckBrief(true));
+q('#refreshState').addEventListener('click',refreshState);
+q('#approved').addEventListener('change',allow);
+q('#photo').addEventListener('change',()=>{q('#logoStatus').textContent=q('#photo').files.length?'Logotipo enviado: a identidade existente será usada como referência.':'Sem logotipo: a IA criará uma proposta nova para a marca.';});
+q('#form').onsubmit=async e=>{
+  e.preventDefault();current=null;blocked=true;q('#approved').checked=false;allow();
+  let f=q('#photo').files[0];
+  if(f && f.size>26000000){status('Logotipo com mais de 26 MB. Comprima antes de enviar.',true);return;}
+  q('#analyze').disabled=true;show('Conferindo...');
+  try{
+    let data=f?await StayVisionImages.read(f).then(x=>x.data):null;
+    const payload={brand:q('#brand').value,activity:q('#activity').value,instagram:q('#instagram').value,contact:q('#contact').value,images:f?[{name:f.name,data}]:[],existing_logo:!!f};
+    const r=await fetch('/api/fase2/brief',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const b=await r.json();if(!r.ok)throw Error(b.error||'Falha no briefing');
+    renderBrief(b,!!f);
+    // Autoridade de permissões: consultar /api/status, não o sinal antigo do briefing.
+    await refreshState();
+  }catch(ex){current=null;blocked=true;show('Sem resultado.');status(ex.message,true);allow();}
+  finally{q('#analyze').disabled=false;}
+};
+q('#recover').addEventListener('click',async()=>{
+  q('#recover').disabled=true;
+  try{
+    const name=q('#brand').value.trim();
+    if(name.length<2)throw new Error('Informe o nome da empresa.');
+    const r=await fetch('/api/fase2/last?brand='+encodeURIComponent(name),{cache:'no-store'});
+    const b=await r.json();
+    if(!r.ok)throw new Error(b.error||'Não foi possível recuperar o briefing.');
+    q('#activity').value=b.activity||q('#activity').value;
+    q('#instagram').value=b.instagram||q('#instagram').value;
+    q('#contact').value=b.contact||q('#contact').value;
+    q('#approved').checked=false;
+    renderBrief(b,!!b.has_logo);
+    status('Briefing Gemini recuperado do disco, sem nova chamada à IA. Confira e marque a caixa de aprovação.',blocked);
+    await refreshState();
+  }catch(ex){status(ex.message,true);}
+  finally{q('#recover').disabled=false;}
+});
+q('#sample').addEventListener('click',async()=>{
+  await refreshState();
+  if(q('#sample').disabled || !current)return;
+  const confirmText=window.prompt('Uma geração via fal.ai pode ser cobrada. Digite GERAR para autorizar apenas UMA tentativa.');
+  if(confirmText!=='GERAR')return;
+  sending=true;allow();status('Solicitação enviada. NÃO clique novamente mesmo se demorar.');
+  try{
+    const r=await fetch('/api/fase2/sample',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:current.id,confirm:'GERAR_UMA_IMAGEM'})});
+    const o=await r.json();if(!r.ok)throw Error(o.error||'Falha');
+    const div=q('#output');div.textContent='Amostra produzida — pacote comercial ainda incompleto.';
+    for(const [href,label] of [[o.review,'Abrir revisão'],[o.download,'Baixar amostra em ZIP']]){
+      const a=document.createElement('a');a.href=href;a.target='_blank';a.rel='noopener';a.textContent=label;div.append(a);
+    }
+    current=null;
+  }catch(ex){status(ex.message+' Não tente novamente sem verificar o painel da fal.ai.',true);current=null;}
+  finally{sending=false;await refreshState();}
+});
+refreshState();
+</script></body></html>

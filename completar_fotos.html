@@ -1,0 +1,127 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>StayVision Business • Fotos Business</title><style>
+:root{font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;background:#090706;color:#f8efeb;--accent:#ff822d}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% 0,#451c0e 0,transparent 45%),#090706;min-height:100vh}a{color:#ffb17d}header{border-bottom:1px solid #5b2a15;padding:18px max(20px,calc((100vw - 1100px)/2));display:flex;justify-content:space-between;align-items:center;gap:10px}main{max-width:1100px;margin:auto;padding:30px 18px 90px}.label{color:#ffb16b;font-weight:800;font-size:12px;letter-spacing:2px}h1{font-size:clamp(30px,4vw,52px);margin:9px 0;line-height:1.14}h1 span{color:var(--accent)}.lead{color:#ceb5a8;max-width:850px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:26px}.panel{border:1px solid #6b341a;border-radius:18px;background:linear-gradient(145deg,#24140e,#110c0a);padding:25px}.sub{font-size:13px;color:#cbb0a2}h2{margin:0 0 10px;font-size:23px}label{display:block;font-weight:650;font-size:14px;margin:15px 0 7px}input:not([type=checkbox]),textarea{font:inherit;color:#fff;background:#130e0c;border:1px solid #75402a;padding:12px;border-radius:9px;width:100%}input[type=file]{font-size:13px}.btn{margin-top:17px;width:100%;background:linear-gradient(90deg,#ff5a19,#ffa51e);color:#211008;border:0;border-radius:10px;padding:15px;font:800 15px system-ui;cursor:pointer}.btn:disabled{opacity:.4;cursor:not-allowed}.ghost{background:#2f201a;color:#fbe6d6;border:1px solid #865034}.note{margin:18px 0 0;background:#2e1a10;border-left:4px solid var(--accent);border-radius:3px;padding:12px 15px;font-size:13px}.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:24px 0}.step{border:1px solid #633621;border-radius:10px;padding:13px;background:#1b110c}.step b{color:#ffd7a4;display:block}.step small{color:#c8a797}#thumb{margin-top:12px;width:100%;border-radius:9px;display:none}.progress{height:10px;border-radius:10px;background:#493023;margin:16px 0;overflow:hidden}#bar{height:100%;width:0;background:linear-gradient(90deg,#ec631b,#ffd16b);transition:width .3s}.agree{display:flex;gap:9px;font-size:13px;font-weight:500;line-height:1.5;margin-top:16px}.agree input{margin:4px 0 0}.modeStatus{padding:13px;margin:12px 0;border:1px solid #a35b29;border-radius:9px;background:#3b2012;color:#ffe9d9;font-size:14px;font-weight:750;white-space:pre-wrap}.modeStatus.ready{background:#163325;border-color:#3a9364;color:#c3f4d9}.modeStatus.warning{background:#42221b;border-color:#b84a39;color:#ffe4db}#msg{white-space:pre-wrap;color:#f4d6c5;font-size:13px;background:#0c0807;border:1px solid #54301c;border-radius:10px;padding:14px;min-height:92px}.links{display:flex;gap:10px;flex-wrap:wrap;margin-top:13px}.links a{border:1px solid #87512d;background:#24150c;padding:9px 15px;border-radius:7px}.list{margin:6px 0;padding-left:21px;color:#d2b7a5;font-size:13px}footer{border-top:1px solid #573019;padding-top:18px;margin-top:35px;color:#a78f84;font-size:12px}@media(max-width:800px){.cols,.steps{grid-template-columns:1fr}.panel{padding:18px}}
+</style></head><body><header><strong>✦ STAYVISION <span style="color:#ff8b39">BUSINESS</span></strong><a href="/">Site comercial</a></header><main><div class="label">FASE 2.8.1 / ESTÚDIO INTERNO / SEM PAGAMENTOS</div><h1>Fotos Business <span>com produção flexível.</span></h1><p class="lead">Seis imagens profissionais: tratamos de 3 a 6 fotos enviadas e criamos as composições restantes com referências reais via GPT Image/fal.ai. O sistema guarda os originais, produz comparações antes/depois apenas para fotos editadas e entrega um ZIP para revisão humana. Não modifica o site comercial.</p>
+<p><a href="/teste-foto">★ Novo: teste uma foto por IA antes das seis chamadas desta etapa</a></p><div class="steps"><div class="step"><b>01 — Conferir grátis</b><small>Importe de 3 a 6 fotos (pode conferir de 1 a 2 sem gerar).</small></div><div class="step"><b>02 — Autorizar 6 imagens</b><small>Entre 3 e 6 fotos; seis chamadas autorizadas, sem repetição automática.</small></div><div class="step"><b>03 — Aprovar entrega</b><small>ZIP com 6 imagens, comparativos rotulados, relatório e revisão.</small></div></div>
+<div class="cols"><section class="panel"><div class="label">ETAPA 1 · SEM CRÉDITOS</div><h2>Dados e fotografias</h2><label for="brand">Empresa</label><input id="brand" placeholder="Nome do negócio" maxlength="75"><label for="activity">Ramo</label><input id="activity" placeholder="Ex.: loja de cosméticos ou oficina automotiva" maxlength="100"><label for="images">Fotografias reais (1 a 6)</label><input type="file" id="images" accept="image/*,.heic,.heif,.avif,.tif,.tiff,.bmp" multiple><p class="sub">JPG, PNG, WebP, HEIC e formatos fotográficos comuns. Qualquer orientação ou proporção; adaptação automática (até 26 MB por foto). Com 5 fotos, o sistema edita as 5 e cria a sexta como <b>composição publicitária IA</b>. O mínimo para gerar é 3 fotos diferentes. Não use fotos de produtos que o cliente não vende.</p><button class="btn" id="prepare">Conferir as fotos (grátis)</button><img id="thumb" alt="Prévia somente das fotografias originais"><div class="note"><b>Novidade V3.2:</b> diagnóstico gratuito de iluminação, contraste, resolução e risco de desfoque antes de autorizar créditos. A IA não pode recuperar com fidelidade detalhes inexistentes. <b>Importante:</b> a prévia gratuita contém apenas as fotografias originais. Ela NÃO simula edição de IA nem gera falsa entrega.</div></section>
+<section class="panel"><div class="label">ETAPA 2 · CHAMADAS REAIS</div><h2>Tratamento profissional</h2><p class="sub">O sistema preservará quantidade e formatos dos produtos, cores, copos, marcas e ingredientes. As composições novas devem ser identificadas como IA; a IA pode alterar detalhes dos produtos. Revise antes de entregar.</p><div id="modeStatus" class="modeStatus" role="status" aria-live="polite">Verificando o modo de operação...</div><div id="msg" role="status" aria-live="polite">Envie suas fotos para conferência. Nenhuma API será chamada.</div><div class="progress" aria-label="Progresso"><div id="bar"></div></div><label class="agree"><input id="agree" type="checkbox"> Li as instruções e autorizo até SEIS chamadas pagas da fal.ai, sem regeneração automática. Conferirei o custo real no painel da fal.ai.</label><button class="btn" id="generate" disabled>Gerar 6 fotos profissionais</button><button class="btn ghost" id="recover">Recuperar progresso do último lote</button><div id="links" class="links"></div><p class="sub">Se a conexão falhar, recupere o progresso; NÃO reenvie as fotos nem clique novamente para evitar cobranças duplicadas. Um lote interrompido permanece bloqueado para repetição automática.</p></section></div><footer>Servidor somente em 127.0.0.1 · Aprovação humana necessária · Sem PIX, checkout ou publicação automática · O site comercial aprovado não foi modificado.</footer></main>
+<script src="/assets/photo_input.js"></script><script>
+const $=s=>document.querySelector(s);
+let prepared=null,started=false,polling=null,checking=false;
+const msg=t=>$('#msg').textContent=t;
+function modeMessage(text,ready=false){
+  const el=$('#modeStatus');el.textContent=text;
+  el.classList.toggle('ready',ready);el.classList.toggle('warning',!ready);
+}
+const readData=async f=>(await StayVisionImages.read(f)).data;
+const status=async()=>{
+  const r=await fetch('/api/status',{cache:'no-store'});if(!r.ok)throw Error('Servidor indisponível');
+  const j=await r.json();
+  if(!['FASE_2_8','FASE_2_9'].some(v=>String(j.release||'').startsWith(v)))throw Error('Versão incorreta: feche o servidor antigo e abra a Fase 2.9');
+  return j;
+};
+async function check(){
+  $('#generate').disabled=true;
+  try{
+    const st=await status(), active=st.image_ai_enabled && st.images_remaining>=6;
+    modeMessage(st.image_ai_enabled
+      ? (st.images_remaining>=6
+        ? 'MODO 5 ATIVO — fal.ai disponível para até 6 chamadas nesta sessão. A geração só começa após confirmar GERAR 6.'
+        : `Modo fal.ai ativo, mas restam ${st.images_remaining} chamadas autorizadas; são necessárias 6. Não inicie outro lote.`)
+      : 'MODO GRATUITO ATIVO — a conferência funciona, mas gerar está BLOQUEADO. Feche o servidor (Ctrl+C), reinicie pelo BAT e escolha a opção 5.',active);
+    const ok=!!prepared && prepared.status==='PREPARADO' && prepared.count>=3 && !started && $('#agree').checked && active;
+    $('#generate').disabled=!ok;
+    return st;
+  }catch(e){modeMessage('Não foi possível verificar o modo: '+e.message);$('#generate').disabled=true;return null;}
+}
+$('#agree').addEventListener('change',check);
+function render(j){
+  prepared=j;started=false;
+  localStorage.setItem('sv_fotos_lote',j.id);
+  $('#thumb').src=j.preview+'?v='+Date.now();$('#thumb').style.display='block';
+  $('#bar').style.width=((j.done||0)/6*100)+'%';
+  const reason=j.count<3?`Envie mais ${3-j.count} foto(s) para atingir o mínimo de 3.`:
+    `Planejado: ${j.count} tratamento(s) de fotos reais + ${6-j.count} composição(ões) novas por IA. A geração paga ainda NÃO começou.`;
+  const risks=(j.photo_quality_reports||[]).map((q,i)=>`Foto ${i+1}: risco ${q.risk}; ${q.width}×${q.height}`).join('\n');
+  msg(`${j.brand} · ${j.count} foto(s) · ${j.status}\n${reason}\n${risks}\n${(j.photo_quality_warnings||[]).join('\n')}\nMarque a autorização; se o MODO 5 estiver ativo, o botão será liberado.`);
+  $('#prepare').disabled=false;check();
+}
+$('#prepare').onclick=async()=>{
+  if(started)return msg('Há um lote em andamento ou interrompido. Use Recuperar progresso antes de qualquer nova tentativa.');
+  const files=[...$('#images').files];if(files.length<1||files.length>6)return msg('Escolha de 1 a 6 fotos.');
+  if(files.some(f=>f.size>26e6))return msg('Uma das fotos ultrapassou 26 MB; reduza o arquivo antes de enviar.');
+  if(!$('#brand').value.trim())return msg('Informe a empresa.');
+  $('#prepare').disabled=true;$('#generate').disabled=true;
+  msg('Conferindo fotografias. Sem chamadas ao Gemini ou à fal.ai...');
+  try{
+    const images=[];for(const f of files)images.push({name:f.name,data:await readData(f)});
+    const res=await fetch('/api/fotos/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({brand:$('#brand').value,activity:$('#activity').value,images})});
+    const j=await res.json();if(!res.ok)throw new Error(j.error||'Falha na importação');render(j);
+  }catch(e){msg(e.message)}finally{$('#prepare').disabled=false;check();}
+};
+async function track(id){
+  if(polling){clearInterval(polling);polling=null;}
+  const run=async()=>{
+    try{
+      const r=await fetch('/api/fotos/status/'+encodeURIComponent(id),{cache:'no-store'}),j=await r.json();
+      if(!r.ok)throw Error(j.error||'Não foi possível ler o estado');
+      if(j.status==='PREPARADO'){
+        // Important: PREPARADO has made ZERO paid calls, and must remain eligible for generation.
+        render(j);return;
+      }
+      prepared=j;started=true;
+      $('#prepare').disabled=true;$('#generate').disabled=true;
+      $('#bar').style.width=(Math.round(100*j.done/6))+'%';
+      msg(`${j.brand} · ${j.status}\nImagens concluídas: ${j.done}/6 (${j.photo_edits} tratamentos e ${j.creative_compositions} composições planejadas)\nTentativas reservadas: ${j.attempts}/6${j.errors?.length?'\n'+j.errors.join('\n'):''}\n${j.status==='INTERROMPIDO_SEM_REPETICAO'?'Não repita. Confira cobranças na fal.ai antes de qualquer decisão.':''}`);
+      if(j.status==='REVISAO_NECESSARIA'){
+        if(polling)clearInterval(polling);polling=null;
+        const links=$('#links');links.textContent='';
+        for(const [href,txt] of [[j.download,'Baixar ZIP das fotos'],[j.review,'Revisar pedido']]){
+          const a=document.createElement('a');a.href=href;a.textContent=txt;a.target='_blank';a.rel='noopener';links.append(a)
+        }
+      }else if(j.status==='INTERROMPIDO_SEM_REPETICAO'){
+        if(polling)clearInterval(polling);polling=null;
+      }else if(!polling && (j.status==='EM_PRODUCAO'||j.status==='MONTANDO_ENTREGA')){
+        polling=setInterval(run,2500);
+      }
+    }catch(e){
+      if(String(e.message).includes('Lote não encontrado')){
+        localStorage.removeItem('sv_fotos_lote');started=false;prepared=null;$('#prepare').disabled=false;
+        msg('Este lote não está salvo nesta instalação. Importe suas cinco fotos novamente: a conferência é gratuita. Nenhuma chamada fal.ai será feita até autorização.');
+        check();return;
+      }
+      msg('Falha ao consultar o lote. NÃO inicie outro lote. '+e.message);
+    }
+  };
+  await run();
+}
+$('#generate').onclick=async()=>{
+  if(!prepared || started || prepared.status!=='PREPARADO'||prepared.count<3)return;
+  const st=await check();
+  if(!st||!st.image_ai_enabled||st.images_remaining<6){msg('O servidor não está no modo 5 com seis chamadas. Reinicie no modo 5; depois recupere o pedido, sem reimportar as fotos.');return;}
+  if(!$('#agree').checked){msg('Marque a autorização antes de gerar.');return;}
+  if(prompt('Para AUTORIZAR 6 chamadas pagas, digite GERAR 6')!=='GERAR 6')return;
+  $('#generate').disabled=true;$('#prepare').disabled=true;started=true;
+  try{
+    const r=await fetch('/api/fotos/finish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:prepared.id,confirm:'AUTORIZO_SEIS_FOTOS'})});
+    const j=await r.json();if(!r.ok)throw Error(j.error||'Falha ao iniciar');
+    msg('Produção iniciada. NÃO clique novamente. Acompanhe abaixo.');
+    await track(j.id);
+  }catch(e){msg('Não foi possível confirmar o início: '+e.message+'\nUse Recuperar progresso; NÃO clique novamente nem reimporte as fotos.');}
+};
+$('#recover').onclick=()=>{
+  const id=localStorage.getItem('sv_fotos_lote');if(!id)return msg('Ainda não há lote salvo neste navegador. Confira suas fotos uma vez.');
+  $('#generate').disabled=true;
+  track(id);
+};
+(async()=>{
+  const st=await check();
+  if(!st)return;
+  const last=localStorage.getItem('sv_fotos_lote');
+  if(last){
+    msg('Recuperando o último pedido do navegador...');
+    await track(last);  // PREPARADO remains eligible when restarting in mode 5.
+  }else{
+    msg(st.image_ai_enabled?'Modo 5 ativo. Confira as fotos para preparar a geração.':'Modo gratuito ativo. Confira as fotos; para gerar reinicie no modo 5.');
+  }
+})();
+</script></body></html>

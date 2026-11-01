@@ -1,0 +1,49 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>StayVision • Operação comercial</title><style>:root{color-scheme:dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif}*{box-sizing:border-box}body{margin:0;background:#0c1323;color:#f1f5ff}header{padding:20px;background:#18253e}main{margin:auto;max-width:1000px;padding:22px 15px}a{color:#ffb482}.info{background:#322716;padding:16px;border:1px solid #a68135;border-radius:10px;color:#f6dea6}.card{margin:13px 0;background:#17243d;border:1px solid #354760;border-radius:14px;padding:17px}small{color:#c7d3e7}button{border:0;background:#ff9c55;color:#201717;font-weight:800;padding:12px 16px;border-radius:9px;cursor:pointer;margin:8px 8px 8px 0}input{background:#0d1629;border:1px solid #657793;border-radius:9px;color:white;font-size:15px;padding:13px;width:100%}#message{white-space:pre-line;color:#f2d39c}code{color:#ffb482}ul{line-height:1.8}</style></head><body><header><strong>Stay<span style="color:#ff9c55">Vision</span> BUSINESS</strong> — Central comercial local</header><main><h1>Pedidos comerciais — ensaio V3.7</h1><div class="info"><b>Não são pedidos pagos de verdade.</b> A etapa de pagamento é uma simulação controlada. NÃO publique esta versão na internet. Produção por fal.ai/Gemini, quando autorizada, consome créditos reais do operador.</div><p>Abra a <a href="/comprar">página de compra de teste</a> em outra aba. O código abaixo é mostrado somente no terminal preto do servidor.</p><label for="code">Código privado do operador</label><input id="code" type="password" autocomplete="off" placeholder="Cole o código mostrado no terminal da StayVision"><button id="verify" onclick="verifyCode()">Verificar código</button><button onclick="load()">Atualizar pedidos</button><p id="sessionlabel" style="color:#aebed9;font-size:13px"></p><p id="message" role="status" aria-live="polite"></p><section id="orders"></section><p><a href="/revisar">Central de revisão visual</a> • <a href="/premium-direto">Estúdio Premium direto</a></p></main><script>
+const $=id=>document.getElementById(id);
+const message=s=>$('message').textContent=s;
+const input=$('code');
+let validated=false,validatedCode='';
+input.addEventListener('input',()=>{validated=false;validatedCode='';$('verify').textContent='Verificar código';});
+async function verifyCode(){
+  const code=input.value.trim();
+  if(!code){message('Cole primeiro o código privado exibido no terminal que está executando a StayVision.');return false;}
+  try{
+    const r=await fetch('/api/operacao/verificar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operator_code:code}),cache:'no-store'});
+    const j=await r.json();
+    if(j.session)$('sessionlabel').textContent='Sessão do servidor: '+j.session+' (compare com o terminal, não é a senha).';
+    if(!r.ok)throw Error(j.error||'Código inválido.');
+    validated=true;validatedCode=code;$('verify').textContent='Código confirmado';message('Acesso de operador validado para esta sessão.');return true;
+  }catch(e){validated=false;validatedCode='';$('verify').textContent='Verificar código';message(e.message);return false;}
+}
+async function load(){
+  try{
+    const r=await fetch('/api/operacao/pedidos',{cache:'no-store'}),j=await r.json();
+    if(!r.ok)throw Error(j.error||'Erro');
+    if(j.session)$('sessionlabel').textContent='Sessão do servidor: '+j.session+' (compare com o terminal, não é a senha).';
+    $('orders').replaceChildren();
+    if(!j.orders.length){if(!validated)message('Nenhum pedido de teste ainda.');return;}
+    if(!validated)message(j.orders.length+' pedido(s) de teste. Verifique o código antes de simular o pagamento.');
+    for(const o of j.orders){
+      const div=document.createElement('article');div.className='card';
+      const name=document.createElement('h2');name.textContent=o.brand+' — '+o.id;div.append(name);
+      const p=document.createElement('p');p.textContent='Pagamento: '+o.payment+' | Produção: '+o.production+' | Revisão: '+o.review;div.append(p);
+      const q=document.createElement('p');q.textContent='Etapa: '+(o.phase||'—')+' | '+(o.progress_percent??'—')+'%';div.append(q);
+      const pay=document.createElement('button');pay.textContent='Simular pagamento (sem Pix)';pay.disabled=o.payment!=='PENDENTE';pay.onclick=()=>act('simular-pagamento',o.id,'SIMULAR_PAGAMENTO');div.append(pay);
+      const prod=document.createElement('button');prod.textContent='Autorizar produção REAL por IA';prod.disabled=o.payment!=='DEMO_PAGO'||o.production!=='PREPARADO_SEM_CREDITOS';prod.onclick=()=>act('iniciar-premium',o.id,'AUTORIZO_PREMIUM_COMPLETO');div.append(prod);
+      const link=document.createElement('a');link.href='/revisar?job='+o.id;link.textContent=' Abrir revisão';div.append(link);
+      $('orders').append(div);
+    }
+  }catch(e){message(e.message)}
+}
+async function act(route,id,confirmText){
+  if(!validated||validatedCode!==input.value.trim()){
+    if(!(await verifyCode()))return;
+  }
+  if(!confirm('Pedido '+id+'\n'+(route==='simular-pagamento'?'SIMULAÇÃO sem dinheiro real':'ATENÇÃO: início gera custos REAIS na Gemini/fal.ai')+'\nConfirmar?'))return;
+  try{
+    const r=await fetch('/api/operacao/'+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,operator_code:validatedCode,confirm:confirmText}),cache:'no-store'});
+    const j=await r.json();if(!r.ok)throw Error(j.error||'Falha');message(j.message);await load();
+  }catch(e){message(e.message)}
+}
+load();setInterval(load,10000);
+</script></body></html>

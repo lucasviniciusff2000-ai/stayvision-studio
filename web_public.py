@@ -94,3 +94,61 @@ class PublicHandler(LocalServer):
             return super().do_POST()
         if _match(p,POST_ADMIN):
             if not self._admin():return self._bad(401)
+            return super().do_POST()
+        return self._bad()
+    def do_PUT(self):return self._bad(405)
+    def do_DELETE(self):return self._bad(405)
+    def do_PATCH(self):return self._bad(405)
+    def log_message(self,format,*args):
+        # Never print tracking tokens, checkout urls, credentials or query strings.
+        p=urlsplit(self.path).path
+        label='/[private]' if any(x in p for x in ['/acompanhar/','/entrega/','/api/cliente/status/','/salvar/','/midia/']) else p[:76]
+        print('[WEB]',self.command,label,flush=True)
+
+def prepare():
+    from urllib.parse import urlsplit
+    origin=os.getenv('SV_PUBLIC_ORIGIN','').rstrip('/')
+    parsed=urlsplit(origin)
+    if parsed.scheme!='https' or not parsed.netloc or parsed.username or parsed.password or parsed.path or parsed.query:
+        raise RuntimeError('SV_PUBLIC_ORIGIN precisa ser https://dominio-da-stayvision, sem caminho.')
+    if os.getenv('RAILWAY_VOLUME_MOUNT_PATH')!='/data' or not os.getenv('RAILWAY_VOLUME_NAME'):
+        raise RuntimeError('Volume Railway obrigatório: conecte o volume ao MESMO serviço em /data antes de abrir pagamentos.')
+    if os.getenv('STAYVISION_DATA_DIR')!='/data':
+        raise RuntimeError('STAYVISION_DATA_DIR deve ser /data.')
+    Path('/data').mkdir(parents=True,exist_ok=True)
+    if not os.access('/data',os.W_OK):raise RuntimeError('Volume /data sem permissão de escrita.')
+    required=('MP_LIVE_ACCESS_TOKEN','GEMINI_API_KEY','FAL_KEY')
+    for name in required:
+        if not os.getenv(name,'').strip():raise RuntimeError('Configure o secret Railway '+name+'.')
+    if os.getenv('SV_REAL_PLANS_ENABLED')!='1':
+        raise RuntimeError('SV_REAL_PLANS_ENABLED=1 é obrigatório para esta versão comercial.')
+    if os.getenv('SV_ONE_REAL_E2E')=='1':raise RuntimeError('Desative o piloto de R$1 no ambiente comercial.')
+    if os.getenv('STAYVISION_IMAGE_MODE')!='required' or os.getenv('STAYVISION_AI_MODE')=='off':
+        raise RuntimeError('Configure IA de imagem e criativo antes do checkout.')
+    if os.getenv('STAYVISION_EDIT_GOAL')!='new':
+        raise RuntimeError('Use STAYVISION_EDIT_GOAL=new para produção comercial.')
+    from admin_credentials import configured,setup
+    if not configured():
+        username=os.getenv('SV_ADMIN_USER','')
+        password=os.getenv('SV_ADMIN_PASSWORD','')
+        if not username or len(password)<16 or 'SENHA_FORTE' in password.upper() or 'DE_SUA_ESCOLHA' in username.upper():raise RuntimeError('Defina SV_ADMIN_USER e SV_ADMIN_PASSWORD REAIS (16+ caracteres) antes de iniciar.')
+        setup(username,password)
+    if os.getenv('STAYVISION_IMAGE_SESSION_LIMIT','0').isdigit() is False or int(os.getenv('STAYVISION_IMAGE_SESSION_LIMIT','0'))<1:
+        raise RuntimeError('Defina STAYVISION_IMAGE_SESSION_LIMIT maior que zero.')
+    from semi_auto_queue import enabled as queue_enabled
+    if not queue_enabled():raise RuntimeError('Configure orçamento e consentimento explícito da fila automática.')
+    from auto_delivery import enabled as deliv_enabled
+    if not deliv_enabled():raise RuntimeError('Configure SV_COMMERCIAL_AUTO_DELIVERY=1 e o limite de entregas automáticas.')
+    from real_plan_checkout import start_background as poll
+    from semi_auto_queue import start_background as queue
+    from auto_delivery import start_background as delivery
+    poll(); queue(); delivery()
+
+def main():
+    prepare()
+    port=int(os.getenv('PORT','8080'))
+    if port<1 or port>65535:raise RuntimeError('PORT inválida.')
+    print('StayVision unified active: site, Mercado Pago reconciliation, AI queue, quality-gated delivery; port',port,flush=True)
+    SafeServer(('0.0.0.0',port),PublicHandler).serve_forever()
+
+if __name__=='__main__':main()

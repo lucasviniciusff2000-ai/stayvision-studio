@@ -5,6 +5,10 @@
 <section class="panel" id="printImporter">
   <h2>Importar empresas por prints <span class="tag">Novo</span></h2>
   <p>Envie prints de sites ou perfis comerciais obtidos de fontes que permitam esse uso. A IA identifica até 10 empresas por print; você confere os dados antes de cadastrar no CRM. Não é necessário Google Maps.</p>
+
+  <label for="printSource">Origem dos prints</label>
+  <select id="printSource" onchange="onPrintSourceChange()"><option value="">Selecionar origem</option><option value="empresa">Site ou perfil da própria empresa</option><option value="google">Google Maps</option></select>
+  <p id="sourceNotice" class="s">Selecione a origem antes de usar créditos de IA.</p>
   <label for="leadPrints">Selecionar prints (JPG, PNG ou WEBP — até 8 por vez)</label>
   <input id="leadPrints" type="file" accept="image/jpeg,image/png,image/webp" multiple>
   <small>As imagens são analisadas individualmente pelo Gemini, com limite diário de segurança, e não ficam armazenadas na StayVision. Podem ocorrer custos de API.</small>
@@ -30,6 +34,17 @@ async function searchMaps(){try{message('');const d=await api('/api/admin/prospe
 
 let extractedCompanies=[];
 let printUrls=[];
+const BURGER_IMAGE='/assets/hero_food_premium.webp';
+function onPrintSourceChange(){
+  const kind=$('printSource').value;
+  $('readPrints').disabled=kind!=='empresa';
+  $('sourceNotice').textContent=kind==='google'
+    ?'Prints do Google Maps podem ser visualizados, mas não importados como listas de empresas. Use o site ou perfil da própria empresa como fonte independente.'
+    :kind==='empresa'
+    ?'A IA prepara o rascunho para conferência usando prints de sites ou perfis da própria empresa.'
+    :'Selecione a origem antes de usar créditos de IA.';
+}
+onPrintSourceChange();
 $('leadPrints').addEventListener('change',()=>{
   printUrls.forEach(URL.revokeObjectURL);printUrls=[];
   extractedCompanies=[];$('importRows').innerHTML='';$('importConfirm').hidden=true;
@@ -57,6 +72,7 @@ async function compressPrint(file){
 async function readPrints(){
   const files=[...$('leadPrints').files].slice(0,8);
   if(!files.length){message('Selecione pelo menos um print.');return}
+  if($('printSource').value!=='empresa'){message('Selecione prints do site ou perfil da empresa; listagens do Google Maps não podem ser importadas ao CRM.');return}
   $('readPrints').disabled=true;
   extractedCompanies=[];let errors=[];
   $('importRows').innerHTML='';$('importConfirm').hidden=true;message('');
@@ -78,9 +94,8 @@ async function readPrints(){
 function updatePrintField(index,key,value){if(extractedCompanies[index])extractedCompanies[index][key]=value}
 function removePrintRow(i){extractedCompanies.splice(i,1);renderPrintRows()}
 function leadMessageDraft(x){
-  const nome=(x.nome||'sua empresa').trim();
-  const area=(x.categoria||'negócios').trim().toLowerCase();
-  return 'Olá, equipe da '+nome+'! Tudo bem? 👋 Sou da StayVision Business. Ajudamos empresas de '+area+' a valorizar seus produtos com fotos profissionais para Instagram e divulgação. Gostaria de mostrar um exemplo do nosso trabalho. Posso enviar?';
+  const nome=(x.nome||'sua hamburgueria').trim();
+  return 'Olá, pessoal da '+nome+'! Tudo bem? 😊\\n\\nMe chamo Lucas e trabalho na StayVision Business. Ajudamos hamburguerias e deliveries a valorizar seus lanches com fotos profissionais, artes e legendas para Instagram e cardápios. 🍔📸\\n\\nPosso te mostrar um exemplo ilustrativo do nosso trabalho?';
 }
 function copyPrintMessage(i){
   const x=extractedCompanies[i];if(!x)return;

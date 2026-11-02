@@ -113,7 +113,7 @@ async function searchMaps(){try{message('');const d=await api('/api/admin/prospe
 
 let extractedCompanies=[];
 let printUrls=[];
-const BURGER_IMAGE='/assets/hero_food_premium.webp';
+const BURGER_IMAGE='/assets/stayvision_antes_depois.jpg';
 function onPrintSourceChange(){
   const allowed=$('sourceAllowed').checked;
   $('readPrints').disabled=!allowed;
@@ -172,7 +172,7 @@ function updatePrintField(index,key,value){if(extractedCompanies[index])extracte
 function removePrintRow(i){extractedCompanies.splice(i,1);renderPrintRows()}
 function leadMessageDraft(x){
   const nome=(x.nome||'sua empresa').trim();
-  return 'Olá, equipe da '+nome+'! Tudo bem? 👋🍔\n\nMe chamo Lucas e trabalho na StayVision Business. Ajudamos hamburguerias e deliveries a valorizar seus produtos com fotos profissionais para cardápios e Instagram.\n\n📈 Segundo dados divulgados pela DoorDash, cardápios com fotos dos produtos registraram aumento de até 44% nas vendas mensais na plataforma.*\n\nIsso demonstra a importância de uma boa apresentação visual! Na StayVision, ajudamos a destacar seus produtos com imagens mais atraentes, preservando sua aparência real.\n\n🚀 Se tiver interesse em conhecer nosso trabalho e nossos planos, visite nosso site:\nhttps://truthful-embrace-production-c05b.up.railway.app/\n\n*Dado divulgado pela DoorDash sobre resultados na própria plataforma. Não representa garantia de aumento nas vendas com a StayVision.';
+  return 'Olá, equipe da '+nome+'! Tudo bem? 👋🍔\n\nMe chamo Lucas e trabalho na StayVision Business. Ajudamos hamburguerias e deliveries a valorizar seus produtos com fotos profissionais para cardápios e Instagram.\n\n📈 Em um estudo da DoorDash com mais de 15 mil pequenos restaurantes, cardápios com fotos tiveram até 44% mais vendas mensais na própria plataforma.\n\nUma apresentação visual caprichada valoriza os produtos e pode ajudar a despertar o interesse dos clientes.\n\n📸 Veja nosso comparativo ilustrativo ANTES e DEPOIS:\nhttps://truthful-embrace-production-c05b.up.railway.app/assets/stayvision_antes_depois.jpg\n\n🚀 Conheça nosso trabalho e nossos planos:\nhttps://truthful-embrace-production-c05b.up.railway.app/';
 }
 function copyPrintMessage(i){
   const x=extractedCompanies[i];if(!x)return;

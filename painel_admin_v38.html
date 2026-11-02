@@ -15,13 +15,13 @@
     <div class="brand"><span class="brand-mark">✧</span><div>STAYVISION<small>BUSINESS</small></div></div>
     <div class="login-overline">CENTRAL DE OPERAÇÕES</div>
     <h1>Painel administrativo</h1>
-    <p class="muted">Gerencie os pedidos, pagamentos de teste, produção e entregas da StayVision.</p>
+    <p class="muted">Gerencie pedidos, pagamentos confirmados, produção e entregas da StayVision.</p>
     <label class="form-label" for="loginUser">USUÁRIO (APÓS CONFIGURAR LOGIN)</label><input id="loginUser" type="text" autocomplete="username" placeholder="Seu usuário"><label class="form-label" for="loginCode">SENHA OU CÓDIGO DO OPERADOR</label>
     <input id="loginCode" type="password" autocomplete="current-password" required placeholder="Sua senha; ou código do terminal no modo legado">
     <button class="btn primary full" type="submit">Entrar no painel <span aria-hidden="true">→</span></button>
     <p id="loginError" role="alert" class="form-error"></p>
-    <p class="login-note">Ambiente local de teste. Sem cobranças reais ou acesso público.</p>
-    <a class="text-link" href="/comprar">Abrir site do cliente (teste) ↗</a>
+    <p class="login-note">Acesso restrito ao administrador. Não compartilhe sua senha.</p>
+    <a class="text-link" href="/comprar">Abrir site do cliente ↗</a>
   </form>
 </section>
 <div id="adminview" class="shell hidden">
@@ -39,8 +39,8 @@
     </nav>
     <div class="sidebar-bottom">
       <div class="sidebar-label">AMBIENTE</div>
-      <div class="environment"><div class="environment-title"><span class="orange">▤</span> Local (teste)</div><p><i class="tiny-dot orange-dot"></i> Pagamentos simulados</p><p><i class="tiny-dot grey-dot"></i> IA conforme modo iniciado</p></div>
-      <p class="sidebar-version">StayVision Business<br>V3.9 · Painel visual integrado</p>
+      <div class="environment"><div class="environment-title" id="sidebarEnvironment"><span class="orange">▤</span> Ambiente em verificação</div><p id="sidebarPayments">Pagamentos e pedidos conforme servidor</p><p id="sidebarAI">IA conforme configuração do servidor</p></div>
+      <p class="sidebar-version">StayVision Business<br>V3.34 · Painel administrativo</p>
     </div>
   </aside>
   <div class="workspace">
@@ -56,7 +56,7 @@
         <article class="metric"><span class="metric-icon">▣</span><div><span class="metric-label">Em produção</span><strong id="countWork">—</strong><small>Pedidos processando</small></div></article>
         <article class="metric"><span class="metric-icon">✓</span><div><span class="metric-label">Aprovados</span><strong id="countApproved">—</strong><small>Revisados para entrega</small></div></article>
       </section>
-      <div class="test-banner"><span class="info-dot">ⓘ</span><span><strong id="envModeText">Ambiente local de demonstração</strong><span class="banner-separator">•</span> <span id="envModeNote">Pagamentos simulados; sem cobrança de planos no modo comum</span></span><span id="aiBanner" class="banner-end">IA desativada neste modo</span></div>
+      <div class="test-banner"><span class="info-dot">ⓘ</span><span><strong id="envModeText">Verificando ambiente</strong><span class="banner-separator">•</span> <span id="envModeNote">Conferindo configuração do checkout</span></span><span id="aiBanner" class="banner-end">Conferindo fila de produção</span></div>
       <section id="viewContext" class="view-context hidden" aria-live="polite"></section>
       <section class="filterbar" aria-label="Filtros dos pedidos">
         <div class="search-field"><span aria-hidden="true">⌕</span><input id="search" aria-label="Buscar pedido ou empresa" placeholder="Buscar pedido, cliente ou empresa..."></div>
@@ -76,7 +76,7 @@
         <section class="panel detail-panel"><div id="details" class="detailEmpty"><div class="empty-detail-icon">▣</div><h2>Selecione um pedido</h2><p>Escolha uma empresa na lista para conferir o pagamento, acompanhar o progresso e revisar os materiais.</p></div></section>
       </div>
       <div id="toast" role="status" aria-live="polite"></div>
-      <footer class="page-footer">Painel local de testes. Somente o operador pode gerenciar pedidos; a experiência do cliente permanece separada e privada.</footer>
+      <footer class="page-footer">Acesso exclusivo ao operador. Os links de acompanhamento e entrega dos clientes são privados.</footer>
     </main>
   </div>
 </div>

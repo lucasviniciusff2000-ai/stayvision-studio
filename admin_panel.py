@@ -205,6 +205,22 @@ def details(h,job):
     except (FileNotFoundError,ValueError):_json(h,{'error':'Pedido não encontrado.'},404)
 
 
+
+def tracking_link(h,job):
+    """Issue an additional customer tracking link without billing or AI."""
+    try:
+        _check(h,modify=True)
+        data=_read_json(h,1000)  # same-origin required by _body
+        if data.get('confirm')!='GERAR_LINK_PRIVADO':
+            raise ValueError('Confirme a emissão de um link privado.')
+        from commerce_flow import issue_tracking_link
+        path=issue_tracking_link(job)
+        return _json(h,{'ok':True,'customer_link':path,'message':'Novo link privado gerado. O original permanece válido.'},headers={'Cache-Control':'no-store'})
+    except PermissionError as e:_json(h,{'error':str(e)},401)
+    except FileNotFoundError:_json(h,{'error':'Pedido não encontrado.'},404)
+    except (TypeError,ValueError,RuntimeError) as e:_json(h,{'error':str(e)},400)
+
+
 def action(h,job,verb):
     try:
         _check(h,modify=True)

@@ -83,9 +83,12 @@ class PublicHandler(LocalServer):
             return self._send('{"ok":true,"service":"stayvision-unified"}')
         if p=='/api/status':
             from real_plan_checkout import enabled
+            from semi_auto_queue import enabled as queue_enabled
+            from auto_delivery import enabled as delivery_enabled
             return self._send(json.dumps({'real_plan_checkout_enabled':enabled(),
                     'one_real_e2e_enabled':False,'commercial_checkout':True,
-                    'public_server':True,'release':'V3.33_UNIFIED_RAILWAY'}))
+                    'ai_queue_enabled':queue_enabled(),'auto_delivery_enabled':delivery_enabled(),
+                    'public_server':True,'release':'V3.34_UNIFIED_RAILWAY'}))
         if p in GET_SIMPLE or p.startswith('/assets/') or _match(p,GET_PRIVATE):
             return super().do_GET()
         if _match(p,GET_ADMIN):
@@ -95,6 +98,9 @@ class PublicHandler(LocalServer):
     def do_POST(self):
         p=urlsplit(self.path).path
         if not self._origin_host_ok():return self._bad(421)
+        if (m:=re.fullmatch(r'/api/admin/orders/(pedido-[0-9a-f]{16})/tracking-link',p)):
+            from admin_panel import tracking_link
+            return tracking_link(self,m.group(1))
         if p=='/api/admin/piloto-r1/criar':
             from piloto_r1_privado import create_pilot_order
             return create_pilot_order(self)

@@ -5,12 +5,14 @@ production payment verifications. The operator enters a terminal-only code to
 mark a DEMO PAYMENT explicitly. This code must never be deployed publicly.
 """
 from __future__ import annotations
-import hashlib, json, os, secrets
+import hashlib, json, os, secrets, threading
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
 TOKEN_SIZE=43
+_ACCESS_LINK_LOCK=threading.RLock()
+_TRACKING_REISSUE_LIMIT=10
 ADMIN_CODE=os.environ.get('STAYVISION_DEMO_ADMIN_CODE') or secrets.token_urlsafe(18)
 SESSION_MARK=secrets.token_hex(3).upper()  # Public diagnostic marker, NOT an authentication token
 
@@ -80,6 +82,54 @@ def _send(h, data, status=200):
     h._send(json.dumps(data,ensure_ascii=False),status)
 
 
+def _additional_access_path(job):
+    # Secondary tracking hashes never modify the original order/payment record.
+    _path(job)  # validates job ID before constructing the filename
+    return _store()/'acessos_adicionais'/(job+'.json')
+
+
+def issue_tracking_link(job):
+    """Create a fresh private tracking URL; keep the original link valid.
+
+    Admin authentication and CSRF must be enforced by the caller. Only hashed
+    tokens are retained, separate from the payment and production files.
+    """
+    _read(job)  # nonexistent order is rejected; no requests to APIs
+    token=secrets.token_urlsafe(32)
+    assert len(token)==TOKEN_SIZE
+    digest=hashlib.sha256(token.encode('utf-8')).hexdigest()
+    path=_additional_access_path(job)
+    with _ACCESS_LINK_LOCK:
+        path.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
+        try:
+            hashes=json.loads(path.read_text(encoding='utf-8')).get('hashes',[]) if path.exists() else []
+        except (OSError,ValueError,AttributeError):
+            raise RuntimeError('Registro de links inválido; não gerar novo link sem revisão.')
+        if not isinstance(hashes,list) or any(not isinstance(x,str) or len(x)!=64 for x in hashes):
+            raise RuntimeError('Registro de links inválido; não gerar novo link sem revisão.')
+        hashes=(hashes+[digest])[-_TRACKING_REISSUE_LIMIT:]
+        tmp=path.with_suffix('.json.tmp')
+        try:
+            with open(tmp,'x',encoding='utf-8') as out:
+                json.dump({'hashes':hashes},out)
+                out.flush();os.fsync(out.fileno())
+            os.replace(tmp,path)
+            try:path.chmod(0o600)
+            except OSError:pass
+        finally:
+            tmp.unlink(missing_ok=True)
+    return '/acompanhar/'+token
+
+
+def _additional_access_matches(job,digest):
+    path=_additional_access_path(job)
+    if not path.is_file():return False
+    try:hashes=json.loads(path.read_text(encoding='utf-8')).get('hashes',[])
+    except (OSError,ValueError,AttributeError):return False
+    if not isinstance(hashes,list):return False
+    return any(isinstance(value,str) and secrets.compare_digest(value,digest) for value in hashes)
+
+
 def _by_token(token):
     if len(token)!=TOKEN_SIZE or not all(c.isalnum() or c in '-_' for c in token):
         raise FileNotFoundError('Link inválido.')
@@ -87,7 +137,11 @@ def _by_token(token):
     for p in _store().glob('pedido-*.json'):
         try:s=json.loads(p.read_text(encoding='utf-8'))
         except (OSError,ValueError):continue
-        if secrets.compare_digest(s.get('access_hash',''),digest):return s
+        if not isinstance(s,dict) or not isinstance(s.get('access_hash'),str):continue
+        if secrets.compare_digest(s['access_hash'],digest):return s
+        try:
+            if _additional_access_matches(p.stem,digest):return s
+        except ValueError:continue
     raise FileNotFoundError('Link inválido.')
 
 

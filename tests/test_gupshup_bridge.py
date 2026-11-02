@@ -74,7 +74,7 @@ class GupshupTest(unittest.TestCase):
         bridge.webhook(h)
         self.assertEqual(h.status,200)
         with contextlib.closing(wa._db()) as db:
-            self.assertEqual(db.execute("SELECT COUNT(*) FROM wa_chat").fetchone()[0],0)
+            self.assertEqual(db.execute("SELECT estado FROM wa_chat").fetchone()[0],"RECEBIDO_TESTE")
 
 if __name__=="__main__":
     unittest.main()

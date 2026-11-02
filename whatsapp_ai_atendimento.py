@@ -242,13 +242,13 @@ def _process(item):
     prior_out=next((r["texto"] for r in reversed(history)
                     if r["direcao"]=="OUT"),"")
     wants_examples=bool(re.search(
-        r"\\b(portf[oó]lio|exemplos?|antes e depois|amostras?)\\b",txt,re.I))
+        r"\b(portf[oó]lio|exemplos?|antes e depois|amostras?)\b",txt,re.I))
     affirmative=bool(re.fullmatch(
-        r"\\s*(sim|s|claro|pode|pode sim|por favor|sim por favor|"
+        r"\s*(sim|s|claro|pode|pode sim|por favor|sim por favor|"
         r"sim por gentileza|quero|quero sim|manda|envia|com certeza)"
-        r"[!?.\\s]*",txt,re.I))
+        r"[!?.\s]*",txt,re.I))
     was_offered=bool(re.search(
-        r"\\b(portf[oó]lio|exemplos?|antes e depois|amostras?)\\b",prior_out,re.I))
+        r"\b(portf[oó]lio|exemplos?|antes e depois|amostras?)\b",prior_out,re.I))
     portfolio_requested=wants_examples or (affirmative and was_offered)
     human=bool(re.search(r"\b(humano|atendente|pessoa real|falar com algu[eé]m)\b",txt,re.I))
     answer=("Claro! Vou deixar sua conversa para a equipe da StayVision. "

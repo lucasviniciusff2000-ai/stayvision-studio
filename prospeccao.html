@@ -77,12 +77,22 @@ async function readPrints(){
 }
 function updatePrintField(index,key,value){if(extractedCompanies[index])extractedCompanies[index][key]=value}
 function removePrintRow(i){extractedCompanies.splice(i,1);renderPrintRows()}
+function leadMessageDraft(x){
+  const nome=(x.nome||'sua empresa').trim();
+  const area=(x.categoria||'negócios').trim().toLowerCase();
+  return 'Olá, equipe da '+nome+'! Tudo bem? 👋 Sou da StayVision Business. Ajudamos empresas de '+area+' a valorizar seus produtos com fotos profissionais para Instagram e divulgação. Gostaria de mostrar um exemplo do nosso trabalho. Posso enviar?';
+}
+function copyPrintMessage(i){
+  const x=extractedCompanies[i];if(!x)return;
+  const msg=leadMessageDraft(x);
+  navigator.clipboard.writeText(msg).then(()=>message('Mensagem copiada. Envie apenas a contatos que aceitaram receber mensagens comerciais.')).catch(()=>{window.prompt('Copie a mensagem:',msg)});
+}
 function renderPrintRows(){
   const keys=[['nome','Empresa'],['cidade','Cidade'],['telefone','Telefone / WhatsApp'],['website','Site'],['instagram','Instagram'],['categoria','Segmento'],['origem','Fonte independente dos dados'],['notas','Observações']];
   $('importRows').innerHTML=extractedCompanies.map((x,i)=>
     '<article class="import-card"><h3>Empresa '+(i+1)+' · '+esc(x.arquivo)+'</h3><div class="import-fields">'+
     keys.map(([k,label])=>'<label>'+label+'<input '+((k==='nome'||k==='origem')?'required ':'')+'value="'+esc(x[k]||'')+'" maxlength="'+(k==='notas'?650:250)+'" oninput="updatePrintField('+i+',\''+k+'\',this.value)"></label>').join('')+
-    '</div><button class="secondary" onclick="removePrintRow('+i+')">Retirar desta lista</button></article>').join('');
+    '</div><details><summary>Prévia de mensagem de apresentação (não enviada)</summary><p>'+esc(leadMessageDraft(x))+'</p><button class="secondary" onclick="copyPrintMessage('+i+')">Copiar mensagem</button></details><button class="secondary" onclick="removePrintRow('+i+')">Retirar desta lista</button></article>').join('');
   $('importConfirm').hidden=!extractedCompanies.length;
   $('legalSource').checked=false;
 }

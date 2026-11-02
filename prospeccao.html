@@ -38,6 +38,9 @@
 </section>
 <section class="panel" id="bulkImportPanel">
   <h2>Importar lista pronta — até 50 empresas</h2>
+  <p><button type="button" class="secondary" onclick="loadReviewedBatch()">Carregar 15 contatos pesquisados em fontes independentes</button></p>
+  <small>Os 15 contatos são uma prévia para conferência: alguns são telefones fixos e não há confirmação de que todos tenham WhatsApp. Não importa nem envia mensagens sozinho.</small>
+  <details><summary>Ver fontes usadas para conferir os contatos</summary><div id="reviewedSources" class="s"></div></details>
   <p>Receba de volta uma lista organizada após o processamento dos prints e cole aqui. Formato por linha: <strong>Nome da empresa | WhatsApp com DDD | Site (opcional)</strong>. Nenhum envio de mensagem acontece nesta importação.</p>
   <label for="bulkOrigin">Fonte independente dos dados</label>
   <input id="bulkOrigin" maxlength="180" placeholder="Ex.: site oficial das empresas / perfis comerciais originais">
@@ -193,6 +196,20 @@ async function savePrintLeads(){
 }
 
 
+const reviewedBatch = [["PANZ PIZZA","(47) 99967-2285","https://pizzapanz.com.br/"],["Chaplin Restaurante","(47) 3367-0250","https://www.visitebalneariocamboriu.com.br/chaplin-restaurante"],["Arbo Gastrobar","(47) 99954-6768","https://visitebombinhas.blogspot.com/search/label/gastronomia"],["Aquele Burguer","(47) 98928-7448","https://www.solutudo.com.br/empresas/sc/camboriu/lanches%2Blanchonetes?pagina=2"],["Ribs Burger","(47) 99695-8424","https://www.benditoguia.com.br/empresa/ribs-burger-centro-balneario-camboriu-sc"],["Seu Zé Choperia e Hamburgueria","(47) 3170-0263","https://www.secturbc.com.br/turismo/pt-br/guia/gastronomia"],["El Campero Fogo","(47) 99655-6697","https://restaurantguru.com.br/El-Campero-Parrilla-Balneario-Camboriu"],["Alô Burguer Camboriú","(47) 99945-6812","https://restaurantguru.com/Alo-Burguer-Camboriu-Camboriu"],["Artesania Burger","(47) 98853-9214","https://restaurantguru.com.br/Artesania-Burger-Balneario-Camboriu"],["Burger Break","(47) 4108-0400","https://www.cylex.com.br/balneario-camboriu/hamburgueria/"],["Hamburgueria Rony","(47) 98842-9269","https://www.waze.com/live-map/directions/br/sc/hamburgueria-rony?to=place.ChIJyZOAcwDJ2JQR7_UsMsLjkHo"],["LDN smash burguer","(47) 98845-3026","https://restaurantguru.com.br/Smash-burguer-Camboriu"],["dahora lanchonete","(47) 99921-9336","https://restaurantguru.com.br/dahora-lanchonete-Balneario-Camboriu"],["Siri Cascudo Hamburgueria","(47) 99646-2228","https://restaurantguru.com.br/Siri-Cascudo-Burguer-Camboriu"],["Bodega Do Loro","(47) 99648-8536","https://restaurantguru.com.br/Bodega-do-Loro-Camboriu"]];
+function loadReviewedBatch(){
+  if($('bulkText').value.trim()&&!confirm('Substituir o texto atual pelos 15 contatos pesquisados?'))return;
+  $('bulkText').value=reviewedBatch.map(row=>row[0]+' | '+row[1]).join('\n');
+  $('bulkOrigin').value='Pesquisa em fontes independentes: sites, portais locais e diretórios públicos';
+  previewBulk();
+  $('bulkImportPanel').scrollIntoView({behavior:'smooth',block:'start'});
+  message('Lista revisável carregada, ainda não cadastrada. Confira os telefones e as fontes antes de importar. Nenhuma mensagem foi enviada.');
+}
+function showReviewedSources(){
+  const box=$('reviewedSources');if(!box)return;
+  box.innerHTML=reviewedBatch.map(row=>'<p>'+esc(row[0])+': <a href="'+esc(row[2])+'" target="_blank" rel="noopener noreferrer">conferir fonte</a></p>').join('');
+}
+showReviewedSources();
 let bulkParsed=[];
 function previewBulk(){
   const rows=$('bulkText').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
@@ -210,9 +227,9 @@ function previewBulk(){
   });
   $('bulkPreview').innerHTML='<strong>'+bulkParsed.length+' empresas identificadas.</strong> '+
     (errors.length?'Linhas para corrigir: '+errors.join(', ')+'.':'Prontas para conferência.')+
-    '<div class="bulk-table">'+bulkParsed.slice(0,10).map((x,i)=>
+    '<div class="bulk-table">'+bulkParsed.slice(0,50).map((x,i)=>
       '<div><strong>'+esc(x.nome)+'</strong><span>'+esc(x.telefone)+'</span></div>').join('')+
-    (bulkParsed.length>10?'<p>... mais '+(bulkParsed.length-10)+' empresas</p>':'')+'</div>';
+    (bulkParsed.length>50?'<p>... mais '+(bulkParsed.length-50)+' empresas</p>':'')+'</div>';
   $('bulkSubmit').disabled=!!errors.length||!bulkParsed.length;
 }
 $('bulkText').addEventListener('input',()=>{bulkParsed=[];$('bulkSubmit').disabled=true;$('bulkPreview').textContent='Clique em Conferir lista antes de cadastrar.'});

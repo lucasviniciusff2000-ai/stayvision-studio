@@ -65,7 +65,7 @@ def webhook(h):
                         state="PENDENTE" if enabled() and _configured() else "RECEBIDO_TESTE"
                         db.execute("""INSERT OR IGNORE INTO wa_chat
                             (id,telefone,direcao,texto,estado,timestamp,criado)
-                            VALUES(?,?,'IN',?,?,?)""",
+                            VALUES(?,?,'IN',?,?,?,?)""",
                             (mid,phone,text,state,timestamp,now))
         # Gupshup solicita 2xx imediato e corpo vazio; worker responde depois.
         return h._send("",200,mime="text/plain")

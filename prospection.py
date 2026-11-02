@@ -171,8 +171,19 @@ def maps_search(h):
         if len(query)<4:raise ValueError("Informe segmento e cidade.")
         key=os.getenv("GOOGLE_PLACES_API_KEY","").strip()
         if not key:raise ValueError("Configure GOOGLE_PLACES_API_KEY antes de pesquisar. Google Places pode cobrar pela consulta.")
+        # Limite conservador por instalação, persistido no volume Railway.
+        # Cada tentativa consome uma vaga, mesmo se o provedor falhar: evita repetição de cobranças.
         with _LOCK:
-            if time.monotonic()-_LAST_SEARCH<15:raise ValueError("Aguarde 15 segundos entre pesquisas.")
+            if time.monotonic()-_LAST_SEARCH<15:
+                raise ValueError("Aguarde 15 segundos entre pesquisas.")
+            day=dt.datetime.now(dt.timezone.utc).date().isoformat()
+            with contextlib.closing(_db()) as db, db:
+                db.execute("CREATE TABLE IF NOT EXISTS maps_quota(day TEXT PRIMARY KEY, used INTEGER NOT NULL)")
+                row=db.execute("SELECT used FROM maps_quota WHERE day=?",(day,)).fetchone()
+                if row and row["used"]>=10:
+                    raise ValueError("Limite interno de 10 pesquisas por dia atingido; tente amanhã.")
+                db.execute("""INSERT INTO maps_quota(day,used) VALUES(?,1)
+                              ON CONFLICT(day) DO UPDATE SET used=used+1""",(day,))
             _LAST_SEARCH=time.monotonic()
         payload=json.dumps({"textQuery":query,"pageSize":10,"languageCode":"pt-BR","regionCode":"BR"}).encode()
         req=urllib.request.Request("https://places.googleapis.com/v1/places:searchText",

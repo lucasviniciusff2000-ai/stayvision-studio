@@ -87,6 +87,10 @@ def create(job,token=None,transport=None):
     raise ValueError('Piloto real R$ 1 aceita somente Fotos Business com UMA foto.')
    from path_safety import require_safe_output
    require_safe_output()
+  # Fail-closed capacity check BEFORE any Mercado Pago preference is created.
+  # Uses a fresh, read-only fal.ai balance and persisted outstanding commitments.
+  from financial_guard import require_checkout_capacity
+  require_checkout_capacity(job, state)
   from engine import PLANS
   seller=_seller(access,transport)
   if pilot:

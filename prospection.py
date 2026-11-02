@@ -39,6 +39,8 @@ def _db():
     db.execute("""CREATE TABLE IF NOT EXISTS eventos(
         id INTEGER PRIMARY KEY AUTOINCREMENT,lead_id TEXT NOT NULL,
         tipo TEXT NOT NULL,detalhes TEXT NOT NULL DEFAULT '',criado TEXT NOT NULL)""")
+    db.execute("""CREATE TABLE IF NOT EXISTS configuracao_prospeccao(
+        chave TEXT PRIMARY KEY,valor TEXT NOT NULL,atualizado TEXT NOT NULL)""")
     return db
 
 def _auth(h,write=False):
@@ -89,12 +91,15 @@ def list_leads(h):
         with contextlib.closing(_db()) as db:
             data=[dict(r) for r in db.execute("SELECT * FROM leads ORDER BY atualizado DESC LIMIT 500")]
             events=[dict(r) for r in db.execute("SELECT lead_id,tipo,detalhes,criado FROM eventos ORDER BY id DESC LIMIT 60")]
+            owner=db.execute("SELECT valor FROM configuracao_prospeccao WHERE chave='whatsapp_empresa'").fetchone()
+            owner_whatsapp=owner["valor"] if owner else ""
         for row in data:
             for k in ("whatsapp_ok","ligacao_ok","bloqueado"):row[k]=bool(row[k])
         return _reply(h,{"ok":True,"leads":data,"events":events,
                 "maps_enabled":bool(os.getenv("GOOGLE_PLACES_API_KEY")),
                 "auto_messages":False,"auto_calls":False,
-                "whatsapp_api_connected":bool(os.getenv("SV_WA_CLOUD_TOKEN") and os.getenv("SV_WA_PHONE_NUMBER_ID") and os.getenv("SV_WA_TEMPLATE_NAME"))})
+                "whatsapp_empresa":owner_whatsapp,
+                "whatsapp_api_connected":False})
     except PermissionError:return _reply(h,{"error":"Faça login no painel."},401)
     except Exception:return _reply(h,{"error":"Erro ao consultar CRM."},500)
 
@@ -104,6 +109,17 @@ def change_lead(h):
         p=_body(h)
         action=_clean(p.get("action",""),30)
         with _LOCK,contextlib.closing(_db()) as db,db:
+            if action=="whatsapp_empresa":
+                # Apenas cadastra o número do operador. Não autentica no Meta,
+                # não lê conversas e não habilita disparos automáticos.
+                raw=p.get("telefone","")
+                phone=_tel(raw) if raw else ""
+                db.execute("""INSERT INTO configuracao_prospeccao(chave,valor,atualizado)
+                     VALUES('whatsapp_empresa',?,?)
+                     ON CONFLICT(chave) DO UPDATE SET valor=excluded.valor,
+                         atualizado=excluded.atualizado""",(phone,_now()))
+                return _reply(h,{"ok":True,"whatsapp_empresa":phone,
+                    "modo":"link_apenas","mensagens_enviadas":0})
             if action=="bulk_import":
                 batch=p.get("empresas",[])
                 source=_clean(p.get("origem",""),180)

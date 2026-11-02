@@ -115,6 +115,9 @@ class PublicHandler(LocalServer):
         if p=='/api/admin/prospeccao/maps-search':
             from prospection import maps_search
             return maps_search(self)
+        if p=='/api/admin/prospeccao/ler-print':
+            from lead_image_import import extract_from_image
+            return extract_from_image(self)
         if (m:=re.fullmatch(r'/api/admin/orders/(pedido-[0-9a-f]{16})/tracking-link',p)):
             from admin_panel import tracking_link
             return tracking_link(self,m.group(1))

@@ -219,15 +219,16 @@ def _process(item):
     if not enabled():return "DESATIVADO",""
     if int(time.time())-item["timestamp"]>=86400:return "EXPIRADO",""
     mid=_send_text(phone,answer)
+    status="ACEITO_GUPSHUP" if os.getenv("SV_WA_PROVIDER")=="gupshup" else "ACEITO_META"
     with _LOCK,contextlib.closing(_db()) as db,db:
         db.execute("""INSERT OR IGNORE INTO wa_chat
             (id,telefone,direcao,texto,estado,timestamp,criado,meta_id)
-            VALUES(?,?,'OUT',?,'ACEITO_PROVEDOR',?,?,?)""",
-            (mid,phone,answer,now,now,mid))
+            VALUES(?,?,'OUT',?,?,?,?,?)""",
+            (mid,phone,answer,status,now,now,mid))
         if human:
             db.execute("INSERT OR IGNORE INTO wa_pausas(telefone,criado) VALUES(?,?)",
                        (phone,now))
-    return "ACEITO_PROVEDOR",mid
+    return status,mid
 
 def _loop():
     while True:

@@ -26,6 +26,9 @@ def enabled():
     return os.getenv("SV_WA_AUTO_REPLY_ENABLED")=="1"
 
 def _configured():
+    if os.getenv("SV_WA_PROVIDER")=="gupshup":
+        from gupshup_bridge import configured
+        return configured()
     return all(os.getenv(k,"").strip() for k in (
         "SV_WA_WEBHOOK_VERIFY_TOKEN","SV_WA_APP_SECRET",
         "SV_WA_CLOUD_TOKEN","SV_WA_PHONE_NUMBER_ID","GEMINI_API_KEY"))
@@ -161,6 +164,9 @@ Nao se apresente como humano; se perguntado, diga que e assistente virtual.
     return answer
 
 def _send_text(phone,txt):
+    if os.getenv("SV_WA_PROVIDER")=="gupshup":
+        from gupshup_bridge import send_text
+        return send_text(phone,txt)
     token=os.getenv("SV_WA_CLOUD_TOKEN","").strip()
     sender=os.getenv("SV_WA_PHONE_NUMBER_ID","").strip()
     version=os.getenv("SV_WA_GRAPH_VERSION","v26.0")
@@ -216,12 +222,12 @@ def _process(item):
     with _LOCK,contextlib.closing(_db()) as db,db:
         db.execute("""INSERT OR IGNORE INTO wa_chat
             (id,telefone,direcao,texto,estado,timestamp,criado,meta_id)
-            VALUES(?,?,'OUT',?,'ACEITO_META',?,?,?)""",
+            VALUES(?,?,'OUT',?,'ACEITO_PROVEDOR',?,?,?)""",
             (mid,phone,answer,now,now,mid))
         if human:
             db.execute("INSERT OR IGNORE INTO wa_pausas(telefone,criado) VALUES(?,?)",
                        (phone,now))
-    return "ACEITO_META",mid
+    return "ACEITO_PROVEDOR",mid
 
 def _loop():
     while True:

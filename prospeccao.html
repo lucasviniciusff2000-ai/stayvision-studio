@@ -4,6 +4,7 @@
 .bulk-table{display:grid;gap:4px;max-width:650px;margin:12px 0}.bulk-table div{display:grid;grid-template-columns:1fr auto;gap:10px;background:#111720;border:1px solid #394451;padding:8px 12px;border-radius:8px}.bulk-table span{color:#ffb77d}@media(max-width:550px){.bulk-table div{grid-template-columns:1fr}}
 .source-check{display:flex;gap:10px;align-items:center;padding:12px 0}.source-check input{width:18px;height:18px;flex-shrink:0}.wa-config{display:grid;grid-template-columns:minmax(210px,1fr) auto auto;gap:12px;align-items:end}.wa-config input{margin-bottom:0}.wa-config button{margin-bottom:0}@media(max-width:750px){.wa-config{grid-template-columns:1fr}.wa-config button{width:100%}}
 .wa-cloud{padding:10px;margin:12px 0;background:#111720;border:1px solid #495160;border-radius:10px;color:#ffd7b9;font-size:13px}.artwork-upload{display:grid;grid-template-columns:minmax(220px,450px) minmax(210px,1fr);gap:18px;align-items:start}.artwork-upload img{width:100%;aspect-ratio:16/9;object-fit:contain;background:#090b0f;border-radius:12px;border:1px solid #555}.artwork-upload label{display:block}.artwork-upload button{display:block;margin-bottom:12px}@media(max-width:700px){.artwork-upload{grid-template-columns:1fr}}
+.message-layout{margin:12px 0;padding:14px;background:#10151e;border:1px solid #353e4b;border-radius:12px}.message-copy{max-width:800px;display:flex;flex-direction:column;align-items:stretch;gap:16px;margin:12px 0}.message-copy .draft-text,.message-copy .draft-cta{white-space:pre-line;color:#f2f4f8;margin:0;line-height:1.6}.message-copy img{display:block;width:100%;height:auto;max-height:none;object-fit:contain;border-radius:12px;border:1px solid #384353}.message-layout .actions,details>.actions{margin-top:10px}
 </style><header><div><b>STAYVISION BUSINESS</b> · Central de Prospecção</div><a href="/painel">Voltar ao painel</a></header><main><h1>Central de Prospecção</h1><p>Pesquise empresas no Google Maps, organize contatos de fontes independentes e registre autorizações antes de ligar ou enviar WhatsApp.</p><div id="msg"></div>
 <section class="panel" id="whatsappConfig">
   <h2>Meu WhatsApp — StayVision</h2>
@@ -120,7 +121,7 @@ async function sendApprovedWhatsApp(id){
     await refresh();
   }catch(e){message('Envio não confirmado: '+e.message)}
 }
-const statuses=['NOVO','QUALIFICADO','CONTATADO','RESPONDEU','PROPOSTA','GANHO','PERDIDO'];function render(){$('count').textContent=leads.length+' cadastrados';$('leads').innerHTML=leads.length?leads.map(l=>'<article class="lead"><div class="lead-name-phone"><strong>'+esc(l.nome)+'</strong><span class="lead-phone">'+esc(l.telefone||'Sem WhatsApp')+'</span></div><small>'+esc(l.cidade)+' • '+esc(l.categoria)+' • '+esc(l.origem)+'</small><p>'+esc(l.notas||'')+'</p><label>Etapa <select onchange="act(\'status\',\''+l.id+'\',{status:this.value})">'+statuses.map(s=>'<option '+(l.status===s?'selected':'')+'>'+s+'</option>').join('')+'</select></label><div class="actions"><button class="secondary" onclick="consent(\''+l.id+'\',\'whatsapp\')">'+(l.whatsapp_ok?'Revogar':'Autorizar')+' WhatsApp</button><button class="secondary" onclick="consent(\''+l.id+'\',\'ligacao\')">'+(l.ligacao_ok?'Revogar':'Autorizar')+' ligação</button><button '+(!l.whatsapp_ok||l.bloqueado?'disabled':'')+' onclick="contact(\''+l.id+'\',\'WHATSAPP\')">WhatsApp</button><button '+(!waConfigured||!waSendEnabled||!l.whatsapp_ok||l.bloqueado||!l.telefone?'disabled':'')+' onclick="sendApprovedWhatsApp(\''+l.id+'\')">Enviar modelo Meta (opt-in)</button><button '+(!l.ligacao_ok||l.bloqueado?'disabled':'')+' onclick="contact(\''+l.id+'\',\'LIGACAO\')">Ligar</button><button class="secondary" onclick="note(\''+l.id+'\')">Nota</button><button class="secondary" onclick="act(\'optout\',\''+l.id+'\',{})">Não contatar</button></div><small>'+esc(l.bloqueado?'BLOQUEADO':'Autorização WhatsApp: '+(l.whatsapp_ok?'sim':'não')+' | ligação: '+(l.ligacao_ok?'sim':'não'))+'</small><details><summary>Mensagem e imagem ilustrativa</summary><div class="draft-showcase"><img src="'+BURGER_IMAGE+'" alt="Exemplo visual do portfólio"><div><p class="draft-text">'+esc(leadMessageDraft(l))+'</p><small>Exemplo ilustrativo; não é trabalho feito para essa empresa. O envio exige autorização.</small><p><a href="'+BURGER_IMAGE+'" target="_blank" rel="noopener noreferrer">Abrir imagem</a></p></div></div></details></article>').join(''):'Nenhum lead cadastrado.'}
+const statuses=['NOVO','QUALIFICADO','CONTATADO','RESPONDEU','PROPOSTA','GANHO','PERDIDO'];function render(){$('count').textContent=leads.length+' cadastrados';$('leads').innerHTML=leads.length?leads.map(l=>'<article class="lead"><div class="lead-name-phone"><strong>'+esc(l.nome)+'</strong><span class="lead-phone">'+esc(l.telefone||'Sem WhatsApp')+'</span></div><small>'+esc(l.cidade)+' • '+esc(l.categoria)+' • '+esc(l.origem)+'</small><p>'+esc(l.notas||'')+'</p><label>Etapa <select onchange="act(\'status\',\''+l.id+'\',{status:this.value})">'+statuses.map(s=>'<option '+(l.status===s?'selected':'')+'>'+s+'</option>').join('')+'</select></label><div class="actions"><button class="secondary" onclick="consent(\''+l.id+'\',\'whatsapp\')">'+(l.whatsapp_ok?'Revogar':'Autorizar')+' WhatsApp</button><button class="secondary" onclick="consent(\''+l.id+'\',\'ligacao\')">'+(l.ligacao_ok?'Revogar':'Autorizar')+' ligação</button><button '+(!l.whatsapp_ok||l.bloqueado?'disabled':'')+' onclick="contact(\''+l.id+'\',\'WHATSAPP\')">WhatsApp</button><button '+(!waConfigured||!waSendEnabled||!l.whatsapp_ok||l.bloqueado||!l.telefone?'disabled':'')+' onclick="sendApprovedWhatsApp(\''+l.id+'\')">Enviar modelo Meta (opt-in)</button><button '+(!l.ligacao_ok||l.bloqueado?'disabled':'')+' onclick="contact(\''+l.id+'\',\'LIGACAO\')">Ligar</button><button class="secondary" onclick="note(\''+l.id+'\')">Nota</button><button class="secondary" onclick="act(\'optout\',\''+l.id+'\',{})">Não contatar</button></div><small>'+esc(l.bloqueado?'BLOQUEADO':'Autorização WhatsApp: '+(l.whatsapp_ok?'sim':'não')+' | ligação: '+(l.ligacao_ok?'sim':'não'))+'</small><details><summary>Mensagem com imagem</summary>'+renderMessagePreview(l)+'<div class="actions"><a href="'+esc(BURGER_IMAGE)+'" target="_blank" rel="noopener noreferrer">Abrir imagem separadamente</a></div></details></article>').join(''):'Nenhum lead cadastrado.'}
 async function act(action,id,extra){try{await api('/api/admin/prospeccao/action',{action,id,...extra});message('Atualizado');await refresh()}catch(e){message(e.message)}}async function consent(id,canal){const l=leads.find(x=>x.id===id),permitted=!(canal==='whatsapp'?l.whatsapp_ok:l.ligacao_ok);const fonte=permitted?prompt('Descreva a autorização comprovada: quando, como e por quem (mínimo 12 caracteres).'):'';if(permitted&&!fonte)return;await act('consent',id,{canal,permitido:permitted,fonte:fonte||''})}
 async function contact(id,tipo){const l=leads.find(x=>x.id===id);if(!l||l.bloqueado)return;try{await api('/api/admin/prospeccao/action',{action:'activity',id,tipo,detalhes:'Ação individual iniciada pelo operador'});if(tipo==='WHATSAPP'){window.open('https://wa.me/'+encodeURIComponent(l.telefone)+'?text='+encodeURIComponent(leadMessageDraft(l)),'_blank','noopener,noreferrer')}else{location.href='tel:+'+l.telefone}refresh()}catch(e){message(e.message)}}
 function note(id){const d=prompt('Anotação da negociação:');if(d)act('activity',id,{tipo:'NOTA',detalhes:d})}
@@ -210,12 +211,26 @@ function leadMessageDraft(x){
   const nome=(x.nome||'sua empresa').trim();
   return 'Olá, equipe da '+nome+'! Tudo bem? 👋🍔\n\nMe chamo Lucas e trabalho na StayVision Business. Ajudamos hamburguerias e deliveries a valorizar seus produtos com fotos profissionais para cardápios e Instagram.\n\n📈 Segundo dados divulgados pela DoorDash, cardápios com fotos dos produtos registraram aumento de até 44% nas vendas mensais na plataforma.\n\nIsso demonstra a importância de uma boa apresentação visual! Na StayVision, ajudamos a destacar seus produtos com imagens mais atraentes, preservando sua aparência real.\n\n🚀 Se tiver interesse em conhecer nosso trabalho e nossos planos, visite nosso site:\nhttps://truthful-embrace-production-c05b.up.railway.app/';
 }
+function leadMessageParts(x){
+  const full=leadMessageDraft(x);
+  const marker='\n\n🚀 ';
+  const index=full.lastIndexOf(marker);
+  return index>=0
+    ?{before:full.slice(0,index),after:full.slice(index+2)}
+    :{before:full,after:''};
+}
+function renderMessagePreview(x){
+  const parts=leadMessageParts(x);
+  return '<div class="message-copy"><p class="draft-text">'+esc(parts.before)+'</p>'+
+    '<img src="'+esc(BURGER_IMAGE)+'" alt="Arte ANTES e DEPOIS aprovada para StayVision Business" loading="lazy">'+
+    '<p class="draft-cta">'+esc(parts.after)+'</p></div>';
+}
 function copyPrintMessage(i){
   const x=extractedCompanies[i];if(!x)return;
   const msg=leadMessageDraft(x);
   navigator.clipboard.writeText(msg).then(()=>message('Mensagem copiada. Envie apenas a contatos que aceitaram receber mensagens comerciais.')).catch(()=>{window.prompt('Copie a mensagem:',msg)});
 }
-function editPrintField(el){const i=Number(el.dataset.i);updatePrintField(i,el.dataset.k,el.value);const preview=el.closest('.import-card')?.querySelector('.draft-text');if(preview&&extractedCompanies[i])preview.textContent=leadMessageDraft(extractedCompanies[i])}
+function editPrintField(el){const i=Number(el.dataset.i);updatePrintField(i,el.dataset.k,el.value);const preview=el.closest('.import-card')?.querySelector('.draft-text');if(preview&&extractedCompanies[i])preview.textContent=leadMessageParts(extractedCompanies[i]).before}
 function renderPrintRows(){
   const keys=[['cidade','Cidade'],['website','Site'],['instagram','Instagram'],['categoria','Segmento'],['origem','Fonte independente dos dados'],['notas','Observações']];
   $('importRows').innerHTML=extractedCompanies.map((x,i)=>
@@ -225,10 +240,8 @@ function renderPrintRows(){
     '<div class="import-fields">'+
     keys.map(([k,label])=>'<label>'+label+'<input data-i="'+i+'" data-k="'+k+'" value="'+esc(x[k]||'')+'" maxlength="'+(k==='notas'?650:250)+'" oninput="editPrintField(this)"></label>').join('')+
     '</div>'+
-    '<div class="draft-showcase"><img src="'+BURGER_IMAGE+'" alt="Imagem ilustrativa de hambúrguer do portfólio"><div><strong>Prévia da apresentação</strong>'+
-    '<p class="draft-text">'+esc(leadMessageDraft(x))+'</p>'+
-    '<small>Imagem ilustrativa; não é um trabalho realizado para esta empresa.</small>'+
-    '<div class="actions"><button class="secondary" onclick="copyPrintMessage('+i+')">Copiar mensagem</button><a href="'+BURGER_IMAGE+'" target="_blank" rel="noopener noreferrer">Abrir imagem</a></div></div></div>'+
+    '<div class="message-layout"><strong>Prévia da apresentação</strong>'+renderMessagePreview(x)+
+    '<div class="actions"><button class="secondary" onclick="copyPrintMessage('+i+')">Copiar texto</button><a href="'+esc(BURGER_IMAGE)+'" target="_blank" rel="noopener noreferrer">Abrir imagem separadamente</a></div></div>'+
     '<button class="secondary" onclick="removePrintRow('+i+')">Retirar desta lista</button></article>').join('');
   $('importConfirm').hidden=!extractedCompanies.length;
   $('legalSource').checked=false;

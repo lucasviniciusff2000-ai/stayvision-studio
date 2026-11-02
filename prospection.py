@@ -222,7 +222,13 @@ def maps_search(h):
                 if isinstance(item,dict) and isinstance(item.get("reason"),str):
                     reason=item["reason"][:72]
                     break
-            message=str(details.get("message","")).lower()
+            # A resposta do Google pode explicar um 403 genérico. Expor apenas
+            # um trecho higienizado no painel ADMIN, nunca chave ou payload bruto.
+            raw_message=str(details.get("message",""))[:700]
+            safe_message=re.sub(r"AIza[A-Za-z0-9_-]{20,}","[CHAVE_OCULTA]",raw_message)
+            safe_message=re.sub(r"(?i)(?:api[_ -]?key|access[_ -]?token|secret|password)\\s*[:=]\\s*[^\\s,;]+","[CREDENCIAL_OCULTA]",safe_message)
+            safe_message=re.sub(r"[\\x00-\\x1f\\x7f]+"," ",safe_message)[:260].strip()
+            message=raw_message.lower()
             if "billing" in message or "faturamento" in message or reason in ("BILLING_DISABLED","BILLING_NOT_ENABLED"):
                 hint="Ative o faturamento no projeto Google Cloud ao qual a chave pertence."
             elif "referer" in message or "referrer" in message or "website restriction" in message or reason in ("API_KEY_HTTP_REFERRER_BLOCKED",):
@@ -231,8 +237,10 @@ def maps_search(h):
                 hint="A chave é inválida. Confira se foi copiada corretamente na Railway."
             elif "not enabled" in message or "has not been used" in message or "disabled" in message or reason in ("SERVICE_DISABLED",):
                 hint="Ative Places API (New) no mesmo projeto Google Cloud da chave."
-            elif "blocked" in message or "permission" in message or reason.startswith("API_KEY_"):
-                hint="Confira as restrições da chave: ela deve permitir Places API (New), sem restrição de site."
+            elif "blocked" in message or reason.startswith("API_KEY_"):
+                hint="O Google bloqueou esta chave ou a API. Confira restrições e projeto da chave."
+            elif code==403:
+                hint="Google negou acesso. Confira se faturamento e Places API (New) estão ativos no MESMO projeto da chave."
             elif code==429 or reason in ("RATE_LIMIT_EXCEEDED","QUOTA_EXCEEDED"):
                 hint="A cota ou limite de uso Google Places foi atingido. Confira Quotas no Google Cloud."
             elif code==400:
@@ -242,7 +250,8 @@ def maps_search(h):
             safe_reason=reason if re.fullmatch(r"[A-Z][A-Z0-9_]{1,71}",reason) else str(details.get("status",""))[:45]
             if not re.fullmatch(r"[A-Z][A-Z0-9_]{1,44}",safe_reason):safe_reason="DESCONHECIDO"
             print("[PLACES] Google respondeu HTTP",code,"motivo",safe_reason,flush=True)
-            return _reply(h,{"error":hint+" (Google HTTP "+str(code)+"; motivo "+safe_reason+")",
+            diagnostic=((" Detalhe Google: "+safe_message) if safe_message else "")
+            return _reply(h,{"error":hint+" (Google HTTP "+str(code)+"; motivo "+safe_reason+")"+diagnostic,
                              "google_http":code,"google_reason":safe_reason},502)
         except (urllib.error.URLError,TimeoutError) as ex:
             _maps_mark_failure(day)

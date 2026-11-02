@@ -74,6 +74,10 @@ class PublicHandler(LocalServer):
     def do_GET(self):
         p=urlsplit(self.path).path
         if p!='/health' and not self._origin_host_ok():return self._bad(421)
+        if p=='/assets/stayvision_antes_depois.jpg':
+            # Imagem publicitária estática em cache. Não gera IA paga e não contém leads.
+            from prospection_marketing_image import before_after_jpeg
+            return self._send(before_after_jpeg(),mime='image/jpeg')
         if p=='/prospeccao':
             # Abriu a central sem sessao (ex.: apos redeploy)? Redirecione ao login.
             # Nao exponha o CRM sem autenticacao nem relaxe as regras das APIs.

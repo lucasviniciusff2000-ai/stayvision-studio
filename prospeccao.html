@@ -171,8 +171,8 @@ async function readPrints(){
 function updatePrintField(index,key,value){if(extractedCompanies[index])extractedCompanies[index][key]=value}
 function removePrintRow(i){extractedCompanies.splice(i,1);renderPrintRows()}
 function leadMessageDraft(x){
-  const nome=(x.nome||'sua hamburgueria').trim();
-  return 'Olá, equipe da '+nome+'! Tudo bem? 👋🍔\n\nMe chamo Lucas e trabalho na StayVision Business. Ajudamos hamburguerias e deliveries a valorizar seus lanches com fotos profissionais para cardápios e Instagram.\n\n📈 Segundo dados divulgados pela DoorDash, cardápios com fotos dos produtos registraram aumento de até 44% nas vendas mensais na plataforma.*\n\nÉ um exemplo do potencial de uma boa apresentação visual, e a StayVision pode ajudar a destacar seus produtos com imagens mais atraentes, preservando sua aparência real.\n\nPosso te mostrar um exemplo ilustrativo do nosso trabalho? 📸\n\n*Dado da DoorDash, não é uma previsão nem garantia de aumento de vendas para seu negócio.';
+  const nome=(x.nome||'sua empresa').trim();
+  return 'Olá, equipe da '+nome+'! Tudo bem? 👋🍔\n\nMe chamo Lucas e trabalho na StayVision Business. Ajudamos hamburguerias e deliveries a valorizar seus produtos com fotos profissionais para cardápios e Instagram.\n\n📈 Segundo dados divulgados pela DoorDash, cardápios com fotos dos produtos registraram aumento de até 44% nas vendas mensais na plataforma.*\n\nIsso demonstra a importância de uma boa apresentação visual! Na StayVision, ajudamos a destacar seus produtos com imagens mais atraentes, preservando sua aparência real.\n\n🚀 Se tiver interesse em conhecer nosso trabalho e nossos planos, visite nosso site:\nhttps://truthful-embrace-production-c05b.up.railway.app/\n\n*Dado divulgado pela DoorDash sobre resultados na própria plataforma. Não representa garantia de aumento nas vendas com a StayVision.';
 }
 function copyPrintMessage(i){
   const x=extractedCompanies[i];if(!x)return;

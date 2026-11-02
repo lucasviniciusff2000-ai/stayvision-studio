@@ -226,8 +226,8 @@ def maps_search(h):
             # um trecho higienizado no painel ADMIN, nunca chave ou payload bruto.
             raw_message=str(details.get("message",""))[:700]
             safe_message=re.sub(r"AIza[A-Za-z0-9_-]{20,}","[CHAVE_OCULTA]",raw_message)
-            safe_message=re.sub(r"(?i)(?:api[_ -]?key|access[_ -]?token|secret|password)\\s*[:=]\\s*[^\\s,;]+","[CREDENCIAL_OCULTA]",safe_message)
-            safe_message=re.sub(r"[\\x00-\\x1f\\x7f]+"," ",safe_message)[:260].strip()
+            safe_message=re.sub(r"(?i)(?:api[_ -]?key|access[_ -]?token|secret|password)\s*[:=]\s*[^\s,;]+","[CREDENCIAL_OCULTA]",safe_message)
+            safe_message=re.sub(r"[\x00-\x1f\x7f]+"," ",safe_message)[:260].strip()
             message=raw_message.lower()
             if "billing" in message or "faturamento" in message or reason in ("BILLING_DISABLED","BILLING_NOT_ENABLED"):
                 hint="Ative o faturamento no projeto Google Cloud ao qual a chave pertence."

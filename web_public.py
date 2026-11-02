@@ -75,7 +75,11 @@ class PublicHandler(LocalServer):
         p=urlsplit(self.path).path
         if p!='/health' and not self._origin_host_ok():return self._bad(421)
         if p=='/assets/stayvision_antes_depois.jpg':
-            # Imagem publicitária estática em cache. Não gera IA paga e não contém leads.
+            # Arte aprovada enviada pelo administrador, persistida em volume Railway.
+            from prospection_artwork_upload import artwork_path
+            stored=artwork_path()
+            if stored.is_file():
+                return self._send(stored.read_bytes(),mime='image/jpeg')
             from prospection_marketing_image import before_after_jpeg
             return self._send(before_after_jpeg(),mime='image/jpeg')
         if p=='/prospeccao':
@@ -122,6 +126,9 @@ class PublicHandler(LocalServer):
         if p=='/api/admin/prospeccao/ler-print':
             from lead_image_import import extract_from_image
             return extract_from_image(self)
+        if p=='/api/admin/prospeccao/arte':
+            from prospection_artwork_upload import upload_artwork
+            return upload_artwork(self)
         if p=='/api/admin/prospeccao/enviar-template-whatsapp':
             from whatsapp_cloud import send_opted_in_template
             return send_opted_in_template(self)

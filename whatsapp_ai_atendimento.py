@@ -73,6 +73,8 @@ def webhook(h):
             return h._send('{"ok":true}')
         if not enabled() or not _configured():
             return h._send('{"ok":true}')
+        if not os.getenv('SV_WA_TEST_PHONE','').strip() and os.getenv('SV_WA_LIVE_APPROVED')!='1':
+            return h._send('{"ok":true}')
         allowed_id=os.getenv("SV_WA_PHONE_NUMBER_ID","")
         test_phone=re.sub(r"\D","",os.getenv("SV_WA_TEST_PHONE",""))
         now=int(time.time())
@@ -188,6 +190,8 @@ def _next():
 def _process(item):
     phone=item["telefone"]
     if not enabled() or not _configured():return "DESATIVADO",""
+    if not os.getenv('SV_WA_TEST_PHONE','').strip() and os.getenv('SV_WA_LIVE_APPROVED')!='1':
+        return "PILOTO_NAO_AUTORIZADO",""
     now=int(time.time())
     if not 0<=now-item["timestamp"]<86400:return "EXPIRADO",""
     with _LOCK,contextlib.closing(_db()) as db:
@@ -247,6 +251,9 @@ def start_background():
     if not enabled():return
     if not _configured():
         print("[WA_AI] Configuracao incompleta, atendimento inativo",flush=True)
+        return
+    if not os.getenv('SV_WA_TEST_PHONE','').strip() and os.getenv('SV_WA_LIVE_APPROVED')!='1':
+        print("[WA_AI] Defina SV_WA_TEST_PHONE para piloto, sem envio amplo",flush=True)
         return
     with _LOCK:
         if _STARTED:return

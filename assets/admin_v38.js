@@ -1,7 +1,7 @@
 'use strict';
 // StayVision Business V3.9 dashboard. All displayed orders/counters come from the local API.
 const el=id=>document.getElementById(id);
-let csrf='',orders=[],selected=null,busy=false,aiReady=false,view='overview',page=0,financeData=null;
+let csrf='',orders=[],selected=null,busy=false,aiReady=false,publicServer=false,autoQueueEnabled=false,autoDeliveryEnabled=false,view='overview',page=0,financeData=null;
 const PAGE_SIZE=5;
 const stage={AGUARDANDO_PAGAMENTO:'Aguardando pagamento',PREPARADO_SEM_CREDITOS:'Aguardando produção',EM_PRODUCAO:'Em produção',REVISAO_NECESSARIA:'Em revisão',INTERROMPIDO_SEM_REPETICAO:'Interrompido'};
 function node(tag,text=null,cls=''){const n=document.createElement(tag);if(text!==null)n.textContent=String(text);if(cls)n.className=cls;return n;}
@@ -29,7 +29,7 @@ function getFiltered(){const query=el('search').value.trim().toLocaleLowerCase('
  return a;
 }
 function setView(newView){view=newView;page=0;document.querySelectorAll('[data-view]').forEach(x=>{x.classList.toggle('active',x.dataset.view===view);x.setAttribute('aria-current',x.dataset.view===view?'page':'false');});
- const copy={overview:['Painel administrativo','Centro de operações da StayVision Business. Gerencie pedidos, pagamentos, produção, revisão e entrega em um só lugar.'],orders:['Pedidos','Todos os pedidos registrados na StayVision.'],clients:['Clientes','Empresas que cadastraram pedidos na StayVision.'],production:['Produção','Acompanhe os pedidos que estão sendo processados.'],review:['Revisão','Confira as artes antes de liberar a galeria ao cliente.'],gallery:['Galeria','Pedidos aprovados e seus materiais de entrega.'],finance:['Financeiro','Pagamentos de demonstração não representam faturamento real.'],settings:['Configurações','Informações desta instalação local e acesso do operador.']};
+ const copy={overview:['Painel administrativo','Centro de operações da StayVision Business. Gerencie pedidos, pagamentos, produção, revisão e entrega em um só lugar.'],orders:['Pedidos','Todos os pedidos registrados na StayVision.'],clients:['Clientes','Empresas que cadastraram pedidos na StayVision.'],production:['Produção','Acompanhe os pedidos que estão sendo processados.'],review:['Revisão','Confira as artes antes de liberar a galeria ao cliente.'],gallery:['Galeria','Pedidos aprovados e seus materiais de entrega.'],finance:['Financeiro','Pagamentos de demonstração não representam faturamento real.'],settings:['Configurações','Informações do ambiente e acesso do operador.']};
  el('pageTitle').textContent=copy[view][0];el('pageSubtitle').textContent=copy[view][1];
  if(view==='settings')notify('Painel protegido por login. Pagamentos reais são conciliados pela API do Mercado Pago.');
  else if(view==='finance')notify('Valores simulados, separados do faturamento real.');
@@ -61,7 +61,7 @@ function renderContext(){
   const notices=add(dashboard,'div',null,'fin-notices');
   const pilotNotice=add(notices,'div',null,'fin-notice fin-notice-pilot');
   add(pilotNotice,'strong','PILOTO REAL · '+(pilot.status==='APROVADO_REAL'?'APROVADO':(pilot.status||'NÃO CONFIRMADO').replaceAll('_',' ')));
-  add(pilotNotice,'span','R$ 1,00 de teste administrativo, fora das vendas dos planos e sem liberar produção.');
+  add(pilotNotice,'span','Piloto administrativo separado do faturamento comercial dos quatro planos.');
   const sandboxNotice=add(notices,'div',null,'fin-notice fin-notice-sandbox');
   add(sandboxNotice,'strong','SANDBOX · '+(Number(f.sandbox_confirmed_orders)||0)+' PAGAMENTO(S)');
   add(sandboxNotice,'span','Transações fictícias, sem faturamento comercial.');
@@ -148,12 +148,16 @@ async function detail(id,rerender=true){selected=id;if(rerender)renderList();con
   const meta=add(root,'div',null,'detail-metadata');detailMeta(meta,'Contato',d.contact);detailMeta(meta,'Plano',planName(o));detailMeta(meta,'Pagamento',o.payment==='VERIFICADO_PROVEDOR'?(o.e2e_trial?'PILOTO REAL R$ 1,00 (1 foto)':'Aprovado REAL (plano)'):o.payment==='ESTORNADO_PROVEDOR'?'Estornado':o.payment==='CONTESTADO_PROVEDOR'?'Contestado':o.payment==='SANDBOX_APROVADO'?'Aprovado no sandbox (teste)':o.payment==='DEMO_PAGO'?'Simulado (teste)':'Pendente');
   const prog=percentage(o);const line=add(root,'div',null,'section-line');add(line,'span','▣  Produção');add(line,'span',`Progresso: ${prog}%`);root.append(createBar(prog,'progress'));add(root,'p','Etapa atual: '+(o.phase||label(o)[0]),'production-step');stepper(root,o);
   const actions=add(root,'div',null,'actions');
-  if(o.payment==='PENDENTE'&&!d.checkout_real)actions.append(actionButton('▤  Simular pagamento',()=>act(id,'demo-payment','SIMULAR_PAGAMENTO')));
-  if((o.payment==='DEMO_PAGO'||o.payment==='VERIFICADO_PROVEDOR')&&o.production==='PREPARADO_SEM_CREDITOS')actions.append(actionButton('▶  Autorizar produção',()=>act(id,'start-production','AUTORIZO_PRODUCAO_COM_CUSTOS'),'primary',!aiReady));
+  if(!publicServer&&o.payment==='PENDENTE'&&!d.checkout_real)actions.append(actionButton('▤  Simular pagamento',()=>act(id,'demo-payment','SIMULAR_PAGAMENTO')));
+  if((o.payment==='DEMO_PAGO'||o.payment==='VERIFICADO_PROVEDOR')&&o.production==='PREPARADO_SEM_CREDITOS'){
+   if(publicServer&&autoQueueEnabled)actions.append(actionButton('Aguardando fila automática',()=>{},'ghost',true));
+   else if(!publicServer)actions.append(actionButton('▶  Autorizar produção',()=>act(id,'start-production','AUTORIZO_PRODUCAO_COM_CUSTOS'),'primary',!aiReady));
+  }
   if(o.production==='REVISAO_NECESSARIA'){
    const preview=add(actions,'a','✎  Revisar no painel','btn ghost');preview.href='/painel';preview.target='_blank';preview.rel='noopener';
   }
-  if(o.review==='APROVADO'&&d.quality?.delivery_link){const l=add(actions,'a','▧  Liberar galeria','btn primary');l.href=d.quality.delivery_link;l.target='_blank';l.rel='noopener';actions.append(actionButton('Revogar acesso',()=>act(id,'revoke',''),'ghost'));}
+  if(o.review==='APROVADO'&&d.quality?.delivery_link){const l=add(actions,'a','▧  Abrir galeria aprovada','btn primary');l.href=d.quality.delivery_link;l.target='_blank';l.rel='noopener noreferrer';actions.append(actionButton('Copiar link da galeria',()=>copyDeliveryLink(d.quality.delivery_link),'ghost'));actions.append(actionButton('Revogar acesso',()=>act(id,'revoke',''),'ghost'));}
+  if(publicServer)actions.append(actionButton('Copiar novo link de acompanhamento',()=>newTrackingLink(id),'ghost'));
   if(d.checkout_real){actions.append(actionButton('Consultar pagamento REAL do plano',()=>checkPlan(id),'ghost'));}
   const pil=d.pilot_real||{};
   if(pil.enabled&&!pil.taken){actions.append(actionButton('TESTE CONTROLADO: gerar checkout REAL R$ 1,00',()=>createPilot(id),'ghost'));}
@@ -163,7 +167,7 @@ async function detail(id,rerender=true){selected=id;if(rerender)renderList();con
    if(pil.enabled&&pil.preference_id)section.append(actionButton('Consultar o pagamento REAL no Mercado Pago',()=>checkPilot(id),'ghost'));
   }
   if(!actions.children.length){actions.append(actionButton('Aguardando próxima etapa',()=>{},'ghost',true));}
-  if(!aiReady&&(o.payment==='DEMO_PAGO'||o.payment==='VERIFICADO_PROVEDOR')&&o.production==='PREPARADO_SEM_CREDITOS')add(root,'p','Neste modo a IA está desligada. Para produzir imagens reais, use o modo 8 no iniciador com autorização explícita.','notice');
+  if(!publicServer&&!aiReady&&(o.payment==='DEMO_PAGO'||o.payment==='VERIFICADO_PROVEDOR')&&o.production==='PREPARADO_SEM_CREDITOS')add(root,'p','A IA não está habilitada neste ambiente local.','notice');
   if(d.errors?.length)add(root,'p','Erros registrados: '+d.errors.join(' · '),'notice');
   if(o.production==='REVISAO_NECESSARIA'&&o.review!=='APROVADO'){
    const box=add(root,'section',null,'detail-review');add(box,'h3','Revisão obrigatória antes da entrega');
@@ -180,6 +184,25 @@ async function detail(id,rerender=true){selected=id;if(rerender)renderList();con
   const bottom=add(root,'div',null,'detail-bottom');add(bottom,'h3','◷  Atividades recentes');const recent=add(bottom,'div',null,'activity');add(recent,'b',label(o)[0]);add(recent,'p',o.phase||'Pedido registrado no acompanhamento.');const original=add(bottom,'div',null,'activity');add(original,'b','Pedido criado');add(original,'p',o.created_utc?new Date(o.created_utc).toLocaleString('pt-BR'):'Data não informada');
  }catch(e){root.replaceChildren(node('p',e.message,'bad'));}
 }
+async function copyPrivateUrl(url){
+ try{await navigator.clipboard.writeText(url);notify('Link privado copiado. Envie somente ao cliente deste pedido.');}
+ catch(e){window.prompt('Copie o link privado abaixo:',url);notify('Link privado exibido para cópia.');}
+}
+function copyDeliveryLink(path){
+ if(!path||!path.startsWith('/entrega/')){notify('Link de entrega indisponível.');return;}
+ return copyPrivateUrl(location.origin+path);
+}
+async function newTrackingLink(job){
+ if(!window.confirm('Gerar NOVO link privado de acompanhamento para este pedido? O link original continuará válido. Não há cobrança nem uso de IA.'))return;
+ try{
+  const r=await api('/api/admin/orders/'+encodeURIComponent(job)+'/tracking-link',{confirm:'GERAR_LINK_PRIVADO'});
+  if(!/^\/acompanhar\/[A-Za-z0-9_-]{43}$/.test(r.customer_link))throw Error('Resposta de link inválida.');
+  const url=location.origin+r.customer_link;
+  const actions=el('details').querySelector('.actions');
+  if(actions){const box=add(actions,'div',null,'tracking-result');add(box,'span','Novo acompanhamento privado gerado');const a=add(box,'a','Abrir link do cliente');a.href=url;a.target='_blank';a.rel='noopener noreferrer';box.append(actionButton('Copiar novamente',()=>copyPrivateUrl(url),'ghost'));}
+  await copyPrivateUrl(url);
+ }catch(e){notify('Não foi possível emitir o link: '+e.message);}
+}
 async function checkPlan(job){try{const x=await api('/api/admin/plan-payment/check',{job});await refresh();await detail(job);notify('Mercado Pago: '+x.status);}catch(e){notify(e.message);}}
 async function createPilot(job){
  const warning='ATENÇÃO: ESTE É UM PAGAMENTO REAL DE R$ 1,00. Pode haver taxas. Será permitida UMA ÚNICA tentativa nesta instalação. A operação não paga o plano nem libera a IA. Você deseja GERAR a cobrança?';
@@ -194,8 +217,25 @@ async function checkPilot(job){
 async function act(id,verb,confirm){const warns={'demo-payment':'Esta ação registra apenas um PAGAMENTO SIMULADO, sem Pix ou dinheiro real.','start-production':'Atenção: iniciar chamadas REAIS da Gemini/fal.ai pode consumir créditos.','revoke':'Revogar o link de entrega existente?'};if(!window.confirm((warns[verb]||'Confirma a ação?')+'\nPedido: '+id))return;try{notify('Processando...');const r=await api('/api/admin/orders/'+id+'/'+verb,{confirm});await refresh();notify(r.message||'Concluído.');}catch(e){notify(e.message);}}
 async function submitReview(id,decision){const checks={};for(const i of el('details').querySelectorAll('[data-check]'))checks[i.dataset.check]=i.checked;if(decision==='approved'&&!Object.values(checks).every(Boolean)){notify('Confirme os quatro itens antes de aprovar.');return;}if(!window.confirm((decision==='approved'?'Aprovar e LIBERAR galeria?':'Reprovar e BLOQUEAR entrega?')+'\nPedido: '+id))return;try{const r=await api('/api/admin/orders/'+id+'/review',{decision,checks,notes:el('reviewNote').value});await refresh();notify(r.message||'Revisão salva.');}catch(e){notify(e.message);}}
 async function start(){el('loginform').addEventListener('submit',login);el('refresh').onclick=refresh;el('filterButton').onclick=()=>{page=0;renderList();};el('clearFilters').onclick=()=>{el('search').value='';el('globalSearch').value='';el('filter').value='all';el('planFilter').value='all';el('dateFilter').value='all';page=0;renderList();};el('search').oninput=()=>{page=0;renderList();};el('globalSearch').oninput=()=>{el('search').value=el('globalSearch').value;page=0;renderList();};el('filter').onchange=()=>{page=0;renderList();};el('planFilter').onchange=()=>{page=0;renderList();};el('dateFilter').onchange=()=>{page=0;renderList();};document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));el('logout').onclick=async()=>{try{await api('/api/admin/logout',{});}catch(e){}showLogin();};document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'&&!el('adminview').classList.contains('hidden')){e.preventDefault();el('globalSearch').focus();}});
+ try{
+  const r=await fetch('/api/status',{cache:'no-store'}).then(r=>r.json());
+  publicServer=r.public_server===true;autoQueueEnabled=r.ai_queue_enabled===true;autoDeliveryEnabled=r.auto_delivery_enabled===true;
+  aiReady=publicServer?autoQueueEnabled:Boolean(r.ai_ready&&r.image_ai_enabled);
+  if(publicServer){
+   el('sidebarEnvironment').textContent='☷  Produção online';
+   el('sidebarPayments').textContent=r.real_plan_checkout_enabled?'● Mercado Pago real configurado':'● Checkout real indisponível';
+   el('sidebarAI').textContent=autoQueueEnabled?'● Fila de IA configurada':'● Fila de IA indisponível';
+   el('envModeText').textContent=r.real_plan_checkout_enabled?'CHECKOUT REAL DE PLANOS HABILITADO':'CHECKOUT REAL NÃO HABILITADO';
+   el('envModeNote').textContent='Cobranças com valores integrais • Mercado Pago de produção';
+   el('aiBanner').textContent=autoQueueEnabled?(autoDeliveryEnabled?'Fila de IA e entrega automática configuradas':'Fila de IA configurada · entrega sob revisão'):'Fila de IA indisponível';
+  }else{
+   el('sidebarEnvironment').textContent='☷  Ambiente local';
+   el('sidebarPayments').textContent='● Testes separados de pagamentos reais';
+   el('sidebarAI').textContent='● IA conforme configuração local';
+   el('aiBanner').textContent=aiReady?'IA habilitada mediante autorização':'IA desativada neste modo';
+  }
+ }catch(e){el('aiBanner').textContent='Status da automação não verificado';}
  try{const s=await api('/api/admin/session');csrf=s.csrf;if(s.ok){showAdmin();await refresh();}}catch(e){showLogin();}
- try{const r=await fetch('/api/status',{cache:'no-store'}).then(r=>r.json());aiReady=Boolean(r.ai_ready&&r.image_ai_enabled);if(r.real_plan_checkout_enabled){el('envModeText').textContent='CHECKOUT REAL DE PLANOS HABILITADO';el('envModeNote').textContent='Cobranças com valores integrais • Mercado Pago de produção';}el('aiBanner').textContent=aiReady?'IA habilitada mediante autorização':'IA desativada neste modo';}catch(e){}
  setInterval(()=>{if(!el('adminview').classList.contains('hidden'))refresh();},12000);
 }
 start();

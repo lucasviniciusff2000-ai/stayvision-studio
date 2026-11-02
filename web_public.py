@@ -74,6 +74,12 @@ class PublicHandler(LocalServer):
     def do_GET(self):
         p=urlsplit(self.path).path
         if p!='/health' and not self._origin_host_ok():return self._bad(421)
+        if p=='/api/whatsapp/webhook':
+            from whatsapp_ai_atendimento import verify
+            return verify(self)
+        if p=='/api/admin/whatsapp/status':
+            from whatsapp_ai_atendimento import admin_status
+            return admin_status(self)
         if p=='/assets/stayvision_antes_depois.jpg':
             # Arte aprovada enviada pelo administrador, persistida em volume Railway.
             from prospection_artwork_upload import artwork_path
@@ -117,6 +123,9 @@ class PublicHandler(LocalServer):
     def do_POST(self):
         p=urlsplit(self.path).path
         if not self._origin_host_ok():return self._bad(421)
+        if p=='/api/whatsapp/webhook':
+            from whatsapp_ai_atendimento import webhook
+            return webhook(self)
         if p=='/api/admin/prospeccao/action':
             from prospection import change_lead
             return change_lead(self)
@@ -191,6 +200,8 @@ def prepare():
     from semi_auto_queue import start_background as queue
     from auto_delivery import start_background as delivery
     poll(); queue(); delivery()
+    from whatsapp_ai_atendimento import start_background as start_whatsapp_ai
+    start_whatsapp_ai()
 
 def main():
     prepare()

@@ -19,6 +19,10 @@ def configured():
         "SV_GS_WEBHOOK_SECRET","GEMINI_API_KEY"))
 
 def webhook(h):
+    """Webhook Meta v3 Gupshup: confirmar rapido, registrar apenas eventos validos.
+
+    Os diagnosticos registram SOMENTE contagens/motivos, sem numeros/textos/IDs.
+    """
     secret=os.getenv("SV_GS_WEBHOOK_SECRET","")
     received=h.headers.get("X-StayVision-Webhook-Key","")
     if len(secret)<32 or not hmac.compare_digest(secret,received):
@@ -32,46 +36,70 @@ def webhook(h):
         if payload.get("gs_app_id")!=os.getenv("SV_GS_APP_ID"):
             return h._send("",403,mime="text/plain")
         if payload.get("object")!="whatsapp_business_account":
+            print("[SV_WA_DIAG] event=other_object",flush=True)
             return h._send("",200,mime="text/plain")
         from whatsapp_ai_atendimento import enabled,_configured,_db,_LOCK
         test_phone=re.sub(r"\D","",os.getenv("SV_WA_TEST_PHONE",""))
         if not test_phone and os.getenv("SV_WA_LIVE_APPROVED")!="1":
+            print("[SV_WA_DIAG] event=pilot_not_authorized",flush=True)
             return h._send("",200,mime="text/plain")
-        source=os.getenv("SV_GS_SOURCE","")
         now=int(time.time())
+        counts=dict(changes=0,text=0,nontext=0,stored=0,duplicate=0,
+                    outside_test=0,invalid_message=0,stale=0,source_diff=0)
+        source=os.getenv("SV_GS_SOURCE","")
         for entry in (payload.get("entry") or [])[:10]:
             if not isinstance(entry,dict):continue
             for change in (entry.get("changes") or [])[:10]:
                 if not isinstance(change,dict) or change.get("field")!="messages":continue
+                counts["changes"]+=1
                 val=change.get("value") or {}
+                if not isinstance(val,dict):continue
                 metadata=val.get("metadata") or {}
-                display=re.sub(r"\D","",str(metadata.get("display_phone_number","")))
-                if display!=source:continue
+                if isinstance(metadata,dict):
+                    display=re.sub(r"\D","",str(metadata.get("display_phone_number","")))
+                    if display and source and display!=source:
+                        counts["source_diff"]+=1
+                # gs_app_id + header privado autenticam a conta; display_phone_number
+                # pode vir mascarado/normalizado e nao pode bloquear o piloto.
                 for m in (val.get("messages") or [])[:20]:
-                    if not isinstance(m,dict) or m.get("type")!="text":continue
+                    if not isinstance(m,dict):continue
+                    if m.get("type")!="text":
+                        counts["nontext"]+=1
+                        continue
+                    counts["text"]+=1
                     mid=str(m.get("id",""))
-                    phone=str(m.get("from",""))
-                    text=str((m.get("text") or {}).get("body","")).strip()
+                    phone=re.sub(r"\D","",str(m.get("from","")))
+                    txt=m.get("text") or {}
+                    content=txt.get("body","") if isinstance(txt,dict) else ""
+                    content=str(content).strip()
                     try:timestamp=int(m.get("timestamp",0))
-                    except (ValueError,TypeError):continue
-                    if not (re.fullmatch(r"[a-zA-Z0-9_.:=/-]{10,250}",mid)
-                        and re.fullmatch(r"\d{10,15}",phone)
-                        and (not test_phone or phone==test_phone)
-                        and 0<=now-timestamp<86400 and 0<len(text)<=4000):
+                    except (ValueError,TypeError):timestamp=-1
+                    if not (re.fullmatch(r"[a-zA-Z0-9_.:=/+\\-]{10,250}",mid)
+                            and re.fullmatch(r"\d{10,15}",phone)
+                            and 0<len(content)<=4000):
+                        counts["invalid_message"]+=1
+                        continue
+                    if test_phone and phone!=test_phone:
+                        counts["outside_test"]+=1
+                        continue
+                    if not 0<=now-timestamp<86400:
+                        counts["stale"]+=1
                         continue
                     with _LOCK,contextlib.closing(_db()) as db,db:
-                        # Eventos recebidos com o bot OFF ficam como registros
-                        # de teste e NUNCA devem gerar resposta ao ligar depois.
                         state="PENDENTE" if enabled() and _configured() else "RECEBIDO_TESTE"
-                        db.execute("""INSERT OR IGNORE INTO wa_chat
+                        cur=db.execute("""INSERT OR IGNORE INTO wa_chat
                             (id,telefone,direcao,texto,estado,timestamp,criado)
                             VALUES(?,?,'IN',?,?,?,?)""",
-                            (mid,phone,text,state,timestamp,now))
-        # Gupshup solicita 2xx imediato e corpo vazio; worker responde depois.
+                            (mid,phone,content,state,timestamp,now))
+                        counts["stored" if cur.rowcount else "duplicate"]+=1
+        print("[SV_WA_DIAG] "+ " ".join(
+            f"{k}={v}" for k,v in counts.items()),flush=True)
         return h._send("",200,mime="text/plain")
     except (TypeError,ValueError,AttributeError,UnicodeError):
+        print("[SV_WA_DIAG] invalid_payload",flush=True)
         return h._send("",400,mime="text/plain")
     except Exception:
+        print("[SV_WA_DIAG] processing_failure",flush=True)
         return h._send("",503,mime="text/plain")
 
 def send_text(phone,answer):

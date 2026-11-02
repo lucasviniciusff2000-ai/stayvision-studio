@@ -111,7 +111,7 @@ def change_lead(h):
                     raise ValueError("Envie de 1 a 50 empresas por importação.")
                 if len(source)<5:
                     raise ValueError("Informe a fonte independente dos contatos.")
-                if re.search(r"google\\s*maps|maps\\.google|goo\\.gl/maps",source,re.I):
+                if re.search(r"google\s*maps|maps\.google|goo\.gl/maps",source,re.I):
                     raise ValueError("Não é permitido importar listas obtidas do Google Maps.")
                 created=0;duplicates=0;invalid=[]
                 now=_now()

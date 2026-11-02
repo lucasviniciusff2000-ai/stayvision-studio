@@ -25,15 +25,18 @@ def cycle():
     for file in sorted(_store().glob('pedido-*.json'),key=lambda x:x.stat().st_mtime):
         try:
             order=json.loads(file.read_text(encoding='utf-8'))
-            e2e=os.environ.get('SV_ONE_REAL_E2E')=='1' and os.environ.get('SV_E2E_ONE_REAL_ACK')=='1'
-            if e2e and not order.get('e2e_trial'):continue
-            source_ok=(order.get('e2e_trial') is True and e2e and order.get('payment_source')=='MERCADO_PAGO_E2E_R1_VERIFICADO') or (not order.get('e2e_trial') and not e2e and order.get('payment_source') in ('MERCADO_PAGO_WEBHOOK_VERIFICADO','MERCADO_PAGO_API_VERIFICADO'))
+            # Pilot is per-order, not a global change of the commercial checkout.
+            pilot=order.get('e2e_trial') is True
+            source_ok=(pilot and os.environ.get('SV_PILOT_R1_ENABLED')=='1' and
+                       order.get('payment_source')=='MERCADO_PAGO_E2E_R1_VERIFICADO') or (
+                       not pilot and order.get('payment_source') in
+                       ('MERCADO_PAGO_WEBHOOK_VERIFICADO','MERCADO_PAGO_API_VERIFICADO'))
             if order.get('payment')!='VERIFICADO_PROVEDOR' or not source_ok:continue
             if _read(_get(order['id'])).get('status')!='PREPARADO_SEM_CREDITOS':continue
             from premium_direct import _get as get_prem, _read as read_prem
             expected=read_prem(get_prem(order['id'])).get('expected_attempts',0)
             if expected<=0:continue
-            if e2e and expected!=1:continue
+            if pilot and expected!=1:continue
             from image_ai import preflight
             # Avoid reserving a job that cannot start due to insufficient
             # current-session credits. This check never calls a paid API.

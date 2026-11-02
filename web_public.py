@@ -74,6 +74,11 @@ class PublicHandler(LocalServer):
     def do_GET(self):
         p=urlsplit(self.path).path
         if p!='/health' and not self._origin_host_ok():return self._bad(421)
+        if p=='/piloto-r1':
+            if not self._admin():return self._bad(401)
+            if os.getenv('SV_PILOT_R1_ENABLED')!='1':return self._bad(404)
+            return self._send((Path(__file__).parent/'piloto_r1.html').read_bytes(),
+                              mime='text/html; charset=utf-8')
         if p=='/health':
             return self._send('{"ok":true,"service":"stayvision-unified"}')
         if p=='/api/status':
@@ -90,6 +95,9 @@ class PublicHandler(LocalServer):
     def do_POST(self):
         p=urlsplit(self.path).path
         if not self._origin_host_ok():return self._bad(421)
+        if p=='/api/admin/piloto-r1/criar':
+            from piloto_r1_privado import create_pilot_order
+            return create_pilot_order(self)
         if p in POST_SIMPLE:
             return super().do_POST()
         if _match(p,POST_ADMIN):

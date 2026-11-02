@@ -74,8 +74,11 @@ def create(job,token=None,transport=None):
   if not access:raise PermissionError('Sem token de produção.')
   plan=state['plan']
   if plan not in PRICES:raise ValueError('Plano não reconhecido.')
-  pilot=pilot_mode()
-  if state.get('e2e_trial') and not pilot:raise ValueError('Piloto real R$ 1 exige iniciador dedicado.')
+  # Only an admin-created, explicitly marked order can use the R$1 checkout.
+  # Public site orders ALWAYS use their full catalogue price.
+  pilot=state.get('e2e_trial') is True
+  if pilot and os.environ.get('SV_PILOT_R1_ENABLED')!='1':
+   raise PermissionError('Piloto R$ 1 desabilitado no servidor.')
   if pilot:
    if not state.get('e2e_trial') or state.get('session_mode')!='PILOTO_E2E_REAL_R1':
     raise ValueError('Apenas pedidos criados pelo iniciador piloto R$1 podem usar este checkout.')

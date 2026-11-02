@@ -161,6 +161,12 @@ def change_lead(h):
     except (ValueError,TypeError) as e:return _reply(h,{"error":str(e)},400)
     except Exception:return _reply(h,{"error":"Operação não concluída."},500)
 
+def _maps_mark_failure(day):
+    """Registra falhas sem fazer consultas adicionais nem remover limites."""
+    with _LOCK:
+        with contextlib.closing(_db()) as db, db:
+            db.execute("UPDATE maps_quota_v2 SET failures=failures+1 WHERE day=?",(day,))
+
 def maps_search(h):
     """Google Places Text Search (New): resultados efêmeros, não cadastrados no CRM."""
     global _LAST_SEARCH
@@ -171,18 +177,23 @@ def maps_search(h):
         if len(query)<4:raise ValueError("Informe segmento e cidade.")
         key=os.getenv("GOOGLE_PLACES_API_KEY","").strip()
         if not key:raise ValueError("Configure GOOGLE_PLACES_API_KEY antes de pesquisar. Google Places pode cobrar pela consulta.")
-        # Limite conservador por instalação, persistido no volume Railway.
-        # Cada tentativa consome uma vaga, mesmo se o provedor falhar: evita repetição de cobranças.
+        # V2: a versão inicial consumiu as 10 vagas com erros HTTP 403
+        # antes da ativação do faturamento. Contador separado preserva
+        # a trilha antiga e permite diagnosticar com limite estrito de custos.
         with _LOCK:
             if time.monotonic()-_LAST_SEARCH<15:
                 raise ValueError("Aguarde 15 segundos entre pesquisas.")
             day=dt.datetime.now(dt.timezone.utc).date().isoformat()
             with contextlib.closing(_db()) as db, db:
-                db.execute("CREATE TABLE IF NOT EXISTS maps_quota(day TEXT PRIMARY KEY, used INTEGER NOT NULL)")
-                row=db.execute("SELECT used FROM maps_quota WHERE day=?",(day,)).fetchone()
+                db.execute("""CREATE TABLE IF NOT EXISTS maps_quota_v2(
+                            day TEXT PRIMARY KEY,used INTEGER NOT NULL,
+                            failures INTEGER NOT NULL DEFAULT 0)""")
+                row=db.execute("SELECT used,failures FROM maps_quota_v2 WHERE day=?",(day,)).fetchone()
                 if row and row["used"]>=10:
-                    raise ValueError("Limite interno de 10 pesquisas por dia atingido; tente amanhã.")
-                db.execute("""INSERT INTO maps_quota(day,used) VALUES(?,1)
+                    raise ValueError("Limite de segurança: 10 consultas por dia. Tente amanhã.")
+                if row and row["failures"]>=3:
+                    raise ValueError("Três consultas falharam hoje. Verifique as permissões e o faturamento do Google antes de tentar novamente amanhã.")
+                db.execute("""INSERT INTO maps_quota_v2(day,used,failures) VALUES(?,1,0)
                               ON CONFLICT(day) DO UPDATE SET used=used+1""",(day,))
             _LAST_SEARCH=time.monotonic()
         payload=json.dumps({"textQuery":query,"pageSize":10,"languageCode":"pt-BR","regionCode":"BR"}).encode()
@@ -195,6 +206,7 @@ def maps_search(h):
             with urllib.request.urlopen(req,timeout=10) as resp:
                 result=json.loads(resp.read(80000))
         except urllib.error.HTTPError as ex:
+            _maps_mark_failure(day)
             # HTTPError também é URLError. Capturar antes permite mostrar a causa
             # sem retornar a resposta bruta do Google (que pode conter metadados).
             code=int(ex.code)
@@ -233,6 +245,7 @@ def maps_search(h):
             return _reply(h,{"error":hint+" (Google HTTP "+str(code)+"; motivo "+safe_reason+")",
                              "google_http":code,"google_reason":safe_reason},502)
         except (urllib.error.URLError,TimeoutError) as ex:
+            _maps_mark_failure(day)
             print("[PLACES] Falha de transporte",type(ex).__name__,flush=True)
             return _reply(h,{"error":"Falha de conexão entre a Railway e a API Places. Verifique a rede ou tente novamente."},502)
         out=[]

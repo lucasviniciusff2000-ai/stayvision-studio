@@ -99,6 +99,10 @@ def list_leads(h):
                 "maps_enabled":bool(os.getenv("GOOGLE_PLACES_API_KEY")),
                 "auto_messages":False,"auto_calls":False,
                 "whatsapp_empresa":owner_whatsapp,
+                "whatsapp_api_configured":bool(os.getenv("SV_WA_CLOUD_TOKEN")
+                    and os.getenv("SV_WA_PHONE_NUMBER_ID")
+                    and os.getenv("SV_WA_TEMPLATE_NAME")),
+                "whatsapp_api_send_enabled":os.getenv("SV_WA_SEND_ENABLED")=="1",
                 "whatsapp_api_connected":False})
     except PermissionError:return _reply(h,{"error":"Faça login no painel."},401)
     except Exception:return _reply(h,{"error":"Erro ao consultar CRM."},500)

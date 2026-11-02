@@ -196,7 +196,10 @@ def _next():
 def _process(item):
     phone=item["telefone"]
     if not enabled() or not _configured():return "DESATIVADO",""
-    if not os.getenv('SV_WA_TEST_PHONE','').strip() and os.getenv('SV_WA_LIVE_APPROVED')!='1':
+    test_phone=re.sub(r"\D","",os.getenv("SV_WA_TEST_PHONE",""))
+    if test_phone and phone!=test_phone:
+        return "FORA_DO_PILOTO",""
+    if not test_phone and os.getenv("SV_WA_LIVE_APPROVED")!="1":
         return "PILOTO_NAO_AUTORIZADO",""
     now=int(time.time())
     if not 0<=now-item["timestamp"]<86400:return "EXPIRADO",""

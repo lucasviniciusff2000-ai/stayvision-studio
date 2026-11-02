@@ -34,8 +34,6 @@ def webhook(h):
         if payload.get("object")!="whatsapp_business_account":
             return h._send("",200,mime="text/plain")
         from whatsapp_ai_atendimento import enabled,_configured,_db,_LOCK
-        if not enabled() or not _configured():
-            return h._send("",200,mime="text/plain")
         test_phone=re.sub(r"\D","",os.getenv("SV_WA_TEST_PHONE",""))
         if not test_phone and os.getenv("SV_WA_LIVE_APPROVED")!="1":
             return h._send("",200,mime="text/plain")
@@ -48,7 +46,7 @@ def webhook(h):
                 val=change.get("value") or {}
                 metadata=val.get("metadata") or {}
                 display=re.sub(r"\D","",str(metadata.get("display_phone_number","")))
-                if display and display!=source:continue
+                if display!=source:continue
                 for m in (val.get("messages") or [])[:20]:
                     if not isinstance(m,dict) or m.get("type")!="text":continue
                     mid=str(m.get("id",""))
@@ -62,10 +60,13 @@ def webhook(h):
                         and 0<=now-timestamp<86400 and 0<len(text)<=4000):
                         continue
                     with _LOCK,contextlib.closing(_db()) as db,db:
+                        # Eventos recebidos com o bot OFF ficam como registros
+                        # de teste e NUNCA devem gerar resposta ao ligar depois.
+                        state="PENDENTE" if enabled() and _configured() else "RECEBIDO_TESTE"
                         db.execute("""INSERT OR IGNORE INTO wa_chat
                             (id,telefone,direcao,texto,estado,timestamp,criado)
-                            VALUES(?,?,'IN',?,'PENDENTE',?,?)""",
-                            (mid,phone,text,timestamp,now))
+                            VALUES(?,?,'IN',?,?,?)""",
+                            (mid,phone,text,state,timestamp,now))
         # Gupshup solicita 2xx imediato e corpo vazio; worker responde depois.
         return h._send("",200,mime="text/plain")
     except (TypeError,ValueError,AttributeError,UnicodeError):
@@ -90,7 +91,7 @@ def send_text(phone,answer):
     }
     data=urllib.parse.urlencode(fields).encode("utf-8")
     req=urllib.request.Request(
-        "https://api.gupshup.io/sm/api/v1/msg",data=data,
+        "https://api.gupshup.io/wa/api/v1/msg",data=data,
         headers={"apikey":token,
                  "Content-Type":"application/x-www-form-urlencoded",
                  "Accept":"application/json"},

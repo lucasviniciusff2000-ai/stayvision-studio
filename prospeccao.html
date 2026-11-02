@@ -2,14 +2,13 @@
 :root{font-family:system-ui;color:#f7f4ee;background:#101218}*{box-sizing:border-box}body{margin:0;background:#101218}header{background:#1c1f28;border-bottom:1px solid #383b43;padding:20px max(16px,4vw);display:flex;justify-content:space-between;align-items:center;gap:12px}header b{color:#ff8d3b}a{color:#ff9c55}main{max-width:1250px;margin:auto;padding:20px}h1{margin:10px 0}p,small{color:#aeb3c0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px}.panel{background:#1c1f28;border:1px solid #373c44;border-radius:15px;padding:20px;margin-bottom:16px}input,select,textarea,button{font:inherit;padding:10px 12px;border-radius:9px}input,select,textarea{width:100%;border:1px solid #515665;background:#12151c;color:white;margin:6px 0 10px}button{background:#fa8230;color:#101218;border:0;font-weight:700;cursor:pointer;margin:4px}button.secondary{background:#363d48;color:white}button:disabled{opacity:.4}label{font-size:13px;color:#d6d9df}.lead{border-bottom:1px solid #373b43;padding:12px 0}.lead strong{display:block}.actions{display:flex;flex-wrap:wrap;gap:4px}#msg{padding:12px;min-height:42px;color:#ffd1a9}#mapResults a{display:inline-block;padding:6px}.tag{color:#ffb77d}.s{font-size:12px}details{margin:6px 0}summary{cursor:pointer}@media(max-width:550px){header{align-items:flex-start;flex-direction:column}}
 #printPreviews{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin:12px 0}#printPreviews figure{margin:0;padding:7px;background:#12151c;border:1px solid #343a43;border-radius:10px}#printPreviews img{display:block;width:100%;height:92px;object-fit:contain;border-radius:6px}#printPreviews figcaption{font-size:11px;word-break:break-all;color:#aeb3c0;margin-top:6px}.import-card{border:1px solid #4c5360;background:#131821;border-radius:12px;padding:15px;margin:12px 0}.import-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}.import-card h3{color:#ffaf77;margin:0 0 9px}.import-fields label{display:block}.import-fields input{margin:4px 0 5px}#importConfirm input[type=checkbox]{width:auto;margin-right:8px}#printProgress{display:block;margin:8px 0}.import-card button{padding:7px 10px}#printImporter button:disabled{opacity:.45} .lead-head{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;background:#242b35;border:1px solid #43505f;border-radius:10px}.lead-head input{font-weight:700}.draft-showcase{display:grid;grid-template-columns:minmax(140px,230px) 1fr;gap:14px;margin:14px 0;padding:14px;background:#10151e;border:1px solid #353e4b;border-radius:12px}.draft-showcase img{width:100%;height:180px;object-fit:cover;border-radius:9px}.draft-text{white-space:pre-line;color:#f2f4f8}.lead-name-phone{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.lead-phone{font-weight:750;color:#ffb77d;white-space:nowrap}@media(max-width:550px){.import-fields,.lead-head,.draft-showcase{grid-template-columns:1fr}.draft-showcase img{height:145px}}
 .bulk-table{display:grid;gap:4px;max-width:650px;margin:12px 0}.bulk-table div{display:grid;grid-template-columns:1fr auto;gap:10px;background:#111720;border:1px solid #394451;padding:8px 12px;border-radius:8px}.bulk-table span{color:#ffb77d}@media(max-width:550px){.bulk-table div{grid-template-columns:1fr}}
-</style><header><div><b>STAYVISION BUSINESS</b> · Central de Prospecção</div><a href="/painel">Voltar ao painel</a></header><main><h1>Central de Prospecção</h1><p>Pesquise empresas no Google Maps, organize contatos de fontes independentes e registre autorizações antes de ligar ou enviar WhatsApp.</p><div id="msg"></div>
+.source-check{display:flex;gap:10px;align-items:center;padding:12px 0}.source-check input{width:18px;height:18px;flex-shrink:0}</style><header><div><b>STAYVISION BUSINESS</b> · Central de Prospecção</div><a href="/painel">Voltar ao painel</a></header><main><h1>Central de Prospecção</h1><p>Pesquise empresas no Google Maps, organize contatos de fontes independentes e registre autorizações antes de ligar ou enviar WhatsApp.</p><div id="msg"></div>
 <section class="panel" id="printImporter">
   <h2>Importar empresas por prints <span class="tag">Novo</span></h2><p class="s" style="margin:12px 0">Dado citado: relatório da <a target="_blank" rel="noopener noreferrer" href="https://merchants.doordash.com/en-us/learning-center/maximize-your-menu">DoorDash sobre fotos de cardápio</a>. Resultado observado na plataforma, não é promessa de vendas da StayVision.</p>
   <p>Envie prints de sites ou perfis comerciais obtidos de fontes que permitam esse uso. A IA identifica até 10 empresas por print; você confere os dados antes de cadastrar no CRM. Não é necessário Google Maps.</p>
 
-  <label for="printSource">Origem dos prints</label>
-  <select id="printSource" onchange="onPrintSourceChange()"><option value="">Selecionar origem</option><option value="empresa">Site ou perfil da própria empresa</option><option value="google">Google Maps</option></select>
-  <p id="sourceNotice" class="s">Selecione a origem antes de usar créditos de IA.</p>
+  <label class="source-check"><input type="checkbox" id="sourceAllowed" onchange="onPrintSourceChange()"> Confirmo que os prints são do site ou perfil da própria empresa, não de listagens do Google Maps.</label>
+  <p id="sourceNotice" class="s">O Google Maps não é aceito como fonte de importação de listas. Marque a confirmação acima apenas para fontes independentes permitidas.</p>
   <label for="leadPrints">Selecionar prints (JPG, PNG ou WEBP — até 8 por vez)</label>
   <input id="leadPrints" type="file" accept="image/jpeg,image/png,image/webp" multiple>
   <small>As imagens são analisadas individualmente pelo Gemini, com limite diário de segurança, e não ficam armazenadas na StayVision. Podem ocorrer custos de API.</small>
@@ -51,13 +50,11 @@ let extractedCompanies=[];
 let printUrls=[];
 const BURGER_IMAGE='/assets/hero_food_premium.webp';
 function onPrintSourceChange(){
-  const kind=$('printSource').value;
-  $('readPrints').disabled=kind!=='empresa';
-  $('sourceNotice').textContent=kind==='google'
-    ?'Prints do Google Maps podem ser visualizados, mas não importados como listas de empresas. Use o site ou perfil da própria empresa como fonte independente.'
-    :kind==='empresa'
-    ?'A IA prepara o rascunho para conferência usando prints de sites ou perfis da própria empresa.'
-    :'Selecione a origem antes de usar créditos de IA.';
+  const allowed=$('sourceAllowed').checked;
+  $('readPrints').disabled=!allowed;
+  $('sourceNotice').textContent=allowed
+    ?'Envie prints de sites ou perfis comerciais originais. A leitura usa Gemini e pode consumir créditos; os dados são revisados antes do cadastro.'
+    :'Listagens do Google Maps não podem ser importadas ao CRM. Utilize os canais originais das empresas.';
 }
 onPrintSourceChange();
 $('leadPrints').addEventListener('change',()=>{
@@ -87,7 +84,7 @@ async function compressPrint(file){
 async function readPrints(){
   const files=[...$('leadPrints').files].slice(0,8);
   if(!files.length){message('Selecione pelo menos um print.');return}
-  if($('printSource').value!=='empresa'){message('Selecione prints do site ou perfil da empresa; listagens do Google Maps não podem ser importadas ao CRM.');return}
+  if(!$('sourceAllowed').checked){message('Confirme que as imagens são de fontes independentes permitidas antes de analisar.');return}
   $('readPrints').disabled=true;
   extractedCompanies=[];let errors=[];
   $('importRows').innerHTML='';$('importConfirm').hidden=true;message('');

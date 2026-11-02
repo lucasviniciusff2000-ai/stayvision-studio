@@ -3,7 +3,8 @@
 #printPreviews{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin:12px 0}#printPreviews figure{margin:0;padding:7px;background:#12151c;border:1px solid #343a43;border-radius:10px}#printPreviews img{display:block;width:100%;height:92px;object-fit:contain;border-radius:6px}#printPreviews figcaption{font-size:11px;word-break:break-all;color:#aeb3c0;margin-top:6px}.import-card{border:1px solid #4c5360;background:#131821;border-radius:12px;padding:15px;margin:12px 0}.import-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}.import-card h3{color:#ffaf77;margin:0 0 9px}.import-fields label{display:block}.import-fields input{margin:4px 0 5px}#importConfirm input[type=checkbox]{width:auto;margin-right:8px}#printProgress{display:block;margin:8px 0}.import-card button{padding:7px 10px}#printImporter button:disabled{opacity:.45} .lead-head{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;background:#242b35;border:1px solid #43505f;border-radius:10px}.lead-head input{font-weight:700}.draft-showcase{display:grid;grid-template-columns:minmax(140px,230px) 1fr;gap:14px;margin:14px 0;padding:14px;background:#10151e;border:1px solid #353e4b;border-radius:12px}.draft-showcase img{width:100%;height:180px;object-fit:cover;border-radius:9px}.draft-text{white-space:pre-line;color:#f2f4f8}.lead-name-phone{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.lead-phone{font-weight:750;color:#ffb77d;white-space:nowrap}@media(max-width:550px){.import-fields,.lead-head,.draft-showcase{grid-template-columns:1fr}.draft-showcase img{height:145px}}
 .bulk-table{display:grid;gap:4px;max-width:650px;margin:12px 0}.bulk-table div{display:grid;grid-template-columns:1fr auto;gap:10px;background:#111720;border:1px solid #394451;padding:8px 12px;border-radius:8px}.bulk-table span{color:#ffb77d}@media(max-width:550px){.bulk-table div{grid-template-columns:1fr}}
 .source-check{display:flex;gap:10px;align-items:center;padding:12px 0}.source-check input{width:18px;height:18px;flex-shrink:0}.wa-config{display:grid;grid-template-columns:minmax(210px,1fr) auto auto;gap:12px;align-items:end}.wa-config input{margin-bottom:0}.wa-config button{margin-bottom:0}@media(max-width:750px){.wa-config{grid-template-columns:1fr}.wa-config button{width:100%}}
-.wa-cloud{padding:10px;margin:12px 0;background:#111720;border:1px solid #495160;border-radius:10px;color:#ffd7b9;font-size:13px}</style><header><div><b>STAYVISION BUSINESS</b> · Central de Prospecção</div><a href="/painel">Voltar ao painel</a></header><main><h1>Central de Prospecção</h1><p>Pesquise empresas no Google Maps, organize contatos de fontes independentes e registre autorizações antes de ligar ou enviar WhatsApp.</p><div id="msg"></div>
+.wa-cloud{padding:10px;margin:12px 0;background:#111720;border:1px solid #495160;border-radius:10px;color:#ffd7b9;font-size:13px}.artwork-upload{display:grid;grid-template-columns:minmax(220px,450px) minmax(210px,1fr);gap:18px;align-items:start}.artwork-upload img{width:100%;aspect-ratio:16/9;object-fit:contain;background:#090b0f;border-radius:12px;border:1px solid #555}.artwork-upload label{display:block}.artwork-upload button{display:block;margin-bottom:12px}@media(max-width:700px){.artwork-upload{grid-template-columns:1fr}}
+</style><header><div><b>STAYVISION BUSINESS</b> · Central de Prospecção</div><a href="/painel">Voltar ao painel</a></header><main><h1>Central de Prospecção</h1><p>Pesquise empresas no Google Maps, organize contatos de fontes independentes e registre autorizações antes de ligar ou enviar WhatsApp.</p><div id="msg"></div>
 <section class="panel" id="whatsappConfig">
   <h2>Meu WhatsApp — StayVision</h2>
   <p>Cadastre o WhatsApp que você utiliza para atender clientes. O número fica salvo no painel privado e pode ser aberto por um link direto.</p>
@@ -18,6 +19,18 @@
   <p class="s">Este campo cadastra seu WhatsApp para atendimento. Conectar a API oficial exige credenciais Meta configuradas no servidor, não apenas informar o número.</p>
   <div id="cloudStatus" class="wa-cloud">WhatsApp Cloud API: configuração não verificada. Envios desativados.</div>
   <small>Para a API oficial, configure o token, ID do número e um modelo de marketing aprovado no ambiente Railway. Envio individual só para contatos com opt-in registrado. Nenhum envio em massa está programado.</small>
+</section>
+<section class="panel" id="artworkAdmin">
+  <h2>Arte comercial ANTES × DEPOIS</h2>
+  <p>Use a imagem que você aprovou, com um hambúrguer ANTES e outro DEPOIS. Ela aparece na prévia de todas as empresas e possui um link público para compartilhamento.</p>
+  <div class="artwork-upload">
+    <img id="artImagePreview" src="/assets/stayvision_antes_depois.jpg" alt="Arte ilustrativa de hamburgueria Antes e Depois" loading="lazy">
+    <div><label for="approvedArtFile">Selecionar imagem aprovada (JPG, PNG ou WEBP, até 2,5 MB)</label>
+    <input id="approvedArtFile" type="file" accept="image/jpeg,image/png,image/webp">
+    <button id="uploadArtworkButton" type="button" onclick="uploadApprovedArt()">Aplicar essa arte em todas as mensagens</button>
+    <p class="s" id="artUploadStatus">Prévia atualmente publicada. O texto da mensagem e a arte são independentes. Nenhum WhatsApp será enviado.</p>
+    <a href="/assets/stayvision_antes_depois.jpg" target="_blank" rel="noopener noreferrer">Ver imagem publicada</a></div>
+  </div>
 </section>
 <section class="panel" id="printImporter">
   <h2>Importar empresas por prints <span class="tag">Novo</span></h2><p class="s" style="margin:12px 0">Dado citado: relatório da <a target="_blank" rel="noopener noreferrer" href="https://merchants.doordash.com/en-us/learning-center/maximize-your-menu">DoorDash sobre fotos de cardápio</a>. Resultado observado na plataforma, não é promessa de vendas da StayVision.</p>
@@ -111,9 +124,29 @@ function note(id){const d=prompt('Anotação da negociação:');if(d)act('activi
 $('create').addEventListener('submit',async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));try{await api('/api/admin/prospeccao/action',{action:'create',...d,prioridade:0});e.target.reset();message('Lead cadastrado');refresh()}catch(err){message(err.message)}})
 async function searchMaps(){try{message('');const d=await api('/api/admin/prospeccao/maps-search',{query:$('query').value});$('mapResults').innerHTML=d.results.map(x=>'<div class="lead"><strong>'+esc(x.nome)+'</strong><small>'+esc(x.endereco)+'</small><p><a target="_blank" rel="noopener noreferrer" href="'+esc(x.maps_url)+'">Ver no Google Maps</a></p></div>').join('')||'Nenhum resultado encontrado.'}catch(e){message(e.message)}}
 
+async function uploadApprovedArt(){
+  const file=$('approvedArtFile').files[0];
+  if(!file){message('Selecione a arte aprovada no seu computador ou celular.');return}
+  if(file.size>2_500_000){message('Imagem acima de 2,5 MB; use um JPG reduzido.');return}
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)){message('Use JPG, PNG ou WEBP.');return}
+  const button=$('uploadArtworkButton');button.disabled=true;
+  $('artUploadStatus').textContent='Validando e salvando a imagem aprovada...';
+  try{
+    const base64=await new Promise((resolve,reject)=>{
+      const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]);r.onerror=()=>reject(Error('Falha ao ler arquivo.'));r.readAsDataURL(file);
+    });
+    const result=await api('/api/admin/prospeccao/arte',{image_base64:base64});
+    BURGER_IMAGE=result.art+'?v='+Date.now();
+    $('artImagePreview').src=BURGER_IMAGE;
+    $('artUploadStatus').textContent='Imagem salva e aplicada. Abra o link público para conferir.';
+    render();renderPrintRows();
+    message('Arte aprovada publicada. Nenhuma mensagem foi enviada.');
+  }catch(err){message(err.message);$('artUploadStatus').textContent='Erro no envio. A imagem anterior permanece publicada.'}
+  finally{button.disabled=false}
+}
 let extractedCompanies=[];
 let printUrls=[];
-const BURGER_IMAGE='/assets/stayvision_antes_depois.jpg';
+let BURGER_IMAGE='/assets/stayvision_antes_depois.jpg';
 function onPrintSourceChange(){
   const allowed=$('sourceAllowed').checked;
   $('readPrints').disabled=!allowed;
@@ -172,7 +205,7 @@ function updatePrintField(index,key,value){if(extractedCompanies[index])extracte
 function removePrintRow(i){extractedCompanies.splice(i,1);renderPrintRows()}
 function leadMessageDraft(x){
   const nome=(x.nome||'sua empresa').trim();
-  return 'Olá, equipe da '+nome+'! Tudo bem? 👋🍔\n\nMe chamo Lucas e trabalho na StayVision Business. Ajudamos hamburguerias e deliveries a valorizar seus produtos com fotos profissionais para cardápios e Instagram.\n\n📈 Em um estudo da DoorDash com mais de 15 mil pequenos restaurantes, cardápios com fotos tiveram até 44% mais vendas mensais na própria plataforma.\n\nUma apresentação visual caprichada valoriza os produtos e pode ajudar a despertar o interesse dos clientes.\n\n📸 Veja nosso comparativo ilustrativo ANTES e DEPOIS:\nhttps://truthful-embrace-production-c05b.up.railway.app/assets/stayvision_antes_depois.jpg\n\n🚀 Conheça nosso trabalho e nossos planos:\nhttps://truthful-embrace-production-c05b.up.railway.app/';
+  return 'Olá, equipe da '+nome+'! Tudo bem? 👋🍔\n\nMe chamo Lucas e trabalho na StayVision Business. Ajudamos hamburguerias e deliveries a valorizar seus produtos com fotos profissionais para cardápios e Instagram.\n\n📈 Segundo dados divulgados pela DoorDash, cardápios com fotos dos produtos registraram aumento de até 44% nas vendas mensais na plataforma.\n\nIsso demonstra a importância de uma boa apresentação visual! Na StayVision, ajudamos a destacar seus produtos com imagens mais atraentes, preservando sua aparência real.\n\n🍔 Confira nosso comparativo ilustrativo ANTES × DEPOIS:\nhttps://truthful-embrace-production-c05b.up.railway.app/assets/stayvision_antes_depois.jpg\n\n🚀 Se tiver interesse em conhecer nosso trabalho e nossos planos, visite nosso site:\nhttps://truthful-embrace-production-c05b.up.railway.app/';
 }
 function copyPrintMessage(i){
   const x=extractedCompanies[i];if(!x)return;

@@ -123,6 +123,9 @@ class PublicHandler(LocalServer):
     def do_POST(self):
         p=urlsplit(self.path).path
         if not self._origin_host_ok():return self._bad(421)
+        if p=='/api/gupshup/webhook':
+            from gupshup_bridge import webhook as gupshup_webhook
+            return gupshup_webhook(self)
         if p=='/api/whatsapp/webhook':
             from whatsapp_ai_atendimento import webhook
             return webhook(self)

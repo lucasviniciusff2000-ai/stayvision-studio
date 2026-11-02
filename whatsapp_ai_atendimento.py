@@ -237,10 +237,25 @@ def _process(item):
             WHERE telefone=? AND criado>? ORDER BY criado,id DESC LIMIT 8""",
             (phone,now-7*86400))]
     txt=item["texto"]
+    # A confirmacao de interesse no portfolio nao deve gerar uma nova pergunta.
+    # O site e o unico destino de portfolio confirmado neste fluxo.
+    prior_out=next((r["texto"] for r in reversed(history)
+                    if r["direcao"]=="OUT"),"")
+    wants_examples=bool(re.search(
+        r"\\b(portf[oó]lio|exemplos?|antes e depois|amostras?)\\b",txt,re.I))
+    affirmative=bool(re.fullmatch(
+        r"\\s*(sim|s|claro|pode|pode sim|por favor|sim por favor|"
+        r"sim por gentileza|quero|quero sim|manda|envia|com certeza)"
+        r"[!?.\\s]*",txt,re.I))
+    was_offered=bool(re.search(
+        r"\\b(portf[oó]lio|exemplos?|antes e depois|amostras?)\\b",prior_out,re.I))
+    portfolio_requested=wants_examples or (affirmative and was_offered)
     human=bool(re.search(r"\b(humano|atendente|pessoa real|falar com algu[eé]m)\b",txt,re.I))
     answer=("Claro! Vou deixar sua conversa para a equipe da StayVision. "
             "Um responsável poderá continuar o atendimento por aqui."
-            if human else _gemini(list(reversed(history)),txt))
+            if human else ("Claro! 😊 Você pode conferir nossos exemplos e demonstrações no site da StayVision: "
+                           + SITE + " Veja o portfólio na página. Se quiser, depois posso ajudar a escolher o plano ideal."
+                           if portfolio_requested else _gemini(list(reversed(history)),txt)))
     if not enabled():return "DESATIVADO",""
     if int(time.time())-item["timestamp"]>=86400:return "EXPIRADO",""
     mid=_send_text(phone,answer)

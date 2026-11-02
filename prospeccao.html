@@ -1,6 +1,7 @@
 <!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>StayVision | Central de Prospecção</title><style>
 :root{font-family:system-ui;color:#f7f4ee;background:#101218}*{box-sizing:border-box}body{margin:0;background:#101218}header{background:#1c1f28;border-bottom:1px solid #383b43;padding:20px max(16px,4vw);display:flex;justify-content:space-between;align-items:center;gap:12px}header b{color:#ff8d3b}a{color:#ff9c55}main{max-width:1250px;margin:auto;padding:20px}h1{margin:10px 0}p,small{color:#aeb3c0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px}.panel{background:#1c1f28;border:1px solid #373c44;border-radius:15px;padding:20px;margin-bottom:16px}input,select,textarea,button{font:inherit;padding:10px 12px;border-radius:9px}input,select,textarea{width:100%;border:1px solid #515665;background:#12151c;color:white;margin:6px 0 10px}button{background:#fa8230;color:#101218;border:0;font-weight:700;cursor:pointer;margin:4px}button.secondary{background:#363d48;color:white}button:disabled{opacity:.4}label{font-size:13px;color:#d6d9df}.lead{border-bottom:1px solid #373b43;padding:12px 0}.lead strong{display:block}.actions{display:flex;flex-wrap:wrap;gap:4px}#msg{padding:12px;min-height:42px;color:#ffd1a9}#mapResults a{display:inline-block;padding:6px}.tag{color:#ffb77d}.s{font-size:12px}details{margin:6px 0}summary{cursor:pointer}@media(max-width:550px){header{align-items:flex-start;flex-direction:column}}
 #printPreviews{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin:12px 0}#printPreviews figure{margin:0;padding:7px;background:#12151c;border:1px solid #343a43;border-radius:10px}#printPreviews img{display:block;width:100%;height:92px;object-fit:contain;border-radius:6px}#printPreviews figcaption{font-size:11px;word-break:break-all;color:#aeb3c0;margin-top:6px}.import-card{border:1px solid #4c5360;background:#131821;border-radius:12px;padding:15px;margin:12px 0}.import-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}.import-card h3{color:#ffaf77;margin:0 0 9px}.import-fields label{display:block}.import-fields input{margin:4px 0 5px}#importConfirm input[type=checkbox]{width:auto;margin-right:8px}#printProgress{display:block;margin:8px 0}.import-card button{padding:7px 10px}#printImporter button:disabled{opacity:.45} .lead-head{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;background:#242b35;border:1px solid #43505f;border-radius:10px}.lead-head input{font-weight:700}.draft-showcase{display:grid;grid-template-columns:minmax(140px,230px) 1fr;gap:14px;margin:14px 0;padding:14px;background:#10151e;border:1px solid #353e4b;border-radius:12px}.draft-showcase img{width:100%;height:180px;object-fit:cover;border-radius:9px}.draft-text{white-space:pre-line;color:#f2f4f8}.lead-name-phone{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.lead-phone{font-weight:750;color:#ffb77d;white-space:nowrap}@media(max-width:550px){.import-fields,.lead-head,.draft-showcase{grid-template-columns:1fr}.draft-showcase img{height:145px}}
+.bulk-table{display:grid;gap:4px;max-width:650px;margin:12px 0}.bulk-table div{display:grid;grid-template-columns:1fr auto;gap:10px;background:#111720;border:1px solid #394451;padding:8px 12px;border-radius:8px}.bulk-table span{color:#ffb77d}@media(max-width:550px){.bulk-table div{grid-template-columns:1fr}}
 </style><header><div><b>STAYVISION BUSINESS</b> · Central de Prospecção</div><a href="/painel">Voltar ao painel</a></header><main><h1>Central de Prospecção</h1><p>Pesquise empresas no Google Maps, organize contatos de fontes independentes e registre autorizações antes de ligar ou enviar WhatsApp.</p><div id="msg"></div>
 <section class="panel" id="printImporter">
   <h2>Importar empresas por prints <span class="tag">Novo</span></h2><p class="s" style="margin:12px 0">Dado citado: relatório da <a target="_blank" rel="noopener noreferrer" href="https://merchants.doordash.com/en-us/learning-center/maximize-your-menu">DoorDash sobre fotos de cardápio</a>. Resultado observado na plataforma, não é promessa de vendas da StayVision.</p>
@@ -21,6 +22,20 @@
     <p class="s">Salvar no CRM não autoriza mensagens. Para WhatsApp, registre o consentimento do destinatário. Nenhum disparo automático é realizado nesta etapa.</p>
     <button type="button" onclick="savePrintLeads()">Cadastrar empresas revisadas</button>
   </div>
+</section>
+<section class="panel" id="bulkImportPanel">
+  <h2>Importar lista pronta — até 50 empresas</h2>
+  <p>Receba de volta uma lista organizada após o processamento dos prints e cole aqui. Formato por linha: <strong>Nome da empresa | WhatsApp com DDD | Site (opcional)</strong>. Nenhum envio de mensagem acontece nesta importação.</p>
+  <label for="bulkOrigin">Fonte independente dos dados</label>
+  <input id="bulkOrigin" maxlength="180" placeholder="Ex.: site oficial das empresas / perfis comerciais originais">
+  <label for="bulkText">Empresas (uma por linha)</label>
+  <textarea id="bulkText" rows="7" placeholder="Hamburgueria Exemplo | (47) 99999-9999 | https://exemplo.com.br&#10;Burger Delivery | (47) 98888-8888"></textarea>
+  <div class="actions">
+    <button type="button" class="secondary" onclick="previewBulk()">Conferir lista</button>
+    <button type="button" id="bulkSubmit" onclick="submitBulk()" disabled>Importar empresas conferidas</button>
+  </div>
+  <div id="bulkPreview" class="s"></div>
+  <p class="s">Apenas leads de fontes permitidas. Nome e telefone são obrigatórios; site e cidade são opcionais. O WhatsApp requer autorização do destinatário para mensagens comerciais.</p>
 </section>
 <div class="grid"><section class="panel"><h2>Pesquisa Google Maps</h2><label>Segmento e cidade</label><input id="query" placeholder="Ex.: restaurantes em Balneário Camboriú"><button onclick="searchMaps()">Pesquisar</button><small id="mapsStatus"></small><div id="mapResults"></div><small>Resultados apenas para consulta; não serão importados ao CRM. Google Maps Platform © Google.</small></section><section class="panel"><h2>Novo lead</h2><p>Registre somente dados obtidos de fonte independente, com finalidade legítima e documentada.</p><form id="create"><label>Empresa<input name="nome" required maxlength="120"></label><label>Cidade<input name="cidade" required maxlength="90"></label><label>Segmento<select name="categoria"><option>Alimentação</option><option>Moda e acessórios</option><option>Beleza</option><option>Tecnologia</option><option>Pets</option><option>Outros</option></select></label><label>Telefone com DDD<input name="telefone" maxlength="25"></label><label>Instagram<input name="instagram"></label><label>Site da empresa<input name="website" maxlength="250" placeholder="https://..."></label><label>Origem independente (obrigatória)<input name="origem" required placeholder="Ex.: formulário próprio, indicação, contato direto"></label><label>Notas<textarea name="notas" rows="2"></textarea></label><button type="submit">Cadastrar empresa</button></form></section></div><section class="panel"><h2>Funil de vendas <span id="count" class="tag"></span></h2><div id="leads"></div></section><section class="panel"><h2>Histórico de atividades</h2><div id="events"></div></section></main><script>
 let csrf='',leads=[];const $=id=>document.getElementById(id);function message(s){$('msg').textContent=s||''}function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}async function api(url,data){const options={credentials:'same-origin'};if(data){options.method='POST';options.headers={'Content-Type':'application/json','X-SV-CSRF':csrf};options.body=JSON.stringify(data)}const r=await fetch(url,options);const x=await r.json();if(!r.ok||x.error)throw Error(x.error||'HTTP '+r.status);return x}
@@ -137,6 +152,46 @@ async function savePrintLeads(){
   extractedCompanies=extractedCompanies.filter(x=>!x.saved);
   renderPrintRows();await refresh();
   message('Empresas cadastradas: '+saved+(errors.length?' | '+errors.slice(0,5).join(' | '):'')+'. Nenhuma mensagem enviada.');
+}
+
+
+let bulkParsed=[];
+function previewBulk(){
+  const rows=$('bulkText').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  $('bulkSubmit').disabled=true;
+  bulkParsed=[];
+  if(!rows.length){$('bulkPreview').textContent='Cole pelo menos uma empresa.';return}
+  if(rows.length>50){$('bulkPreview').textContent='O limite é 50 empresas por lote.';return}
+  const errors=[];
+  rows.forEach((line,i)=>{
+    const fields=line.split('|').map(x=>x.trim());
+    if(fields.length<2||!fields[0]||!fields[1]||!/^\+?[\d()\s.-]+$/.test(fields[1])||fields[1].replace(/\D/g,'').length<10){
+      errors.push(i+1);return;
+    }
+    bulkParsed.push({nome:fields[0],telefone:fields[1],website:fields.slice(2).join('|')||'',categoria:'Alimentação'});
+  });
+  $('bulkPreview').innerHTML='<strong>'+bulkParsed.length+' empresas identificadas.</strong> '+
+    (errors.length?'Linhas para corrigir: '+errors.join(', ')+'.':'Prontas para conferência.')+
+    '<div class="bulk-table">'+bulkParsed.slice(0,10).map((x,i)=>
+      '<div><strong>'+esc(x.nome)+'</strong><span>'+esc(x.telefone)+'</span></div>').join('')+
+    (bulkParsed.length>10?'<p>... mais '+(bulkParsed.length-10)+' empresas</p>':'')+'</div>';
+  $('bulkSubmit').disabled=!!errors.length||!bulkParsed.length;
+}
+$('bulkText').addEventListener('input',()=>{bulkParsed=[];$('bulkSubmit').disabled=true;$('bulkPreview').textContent='Clique em Conferir lista antes de cadastrar.'});
+async function submitBulk(){
+  if(!bulkParsed.length){message('Confira a lista primeiro.');return}
+  const origem=$('bulkOrigin').value.trim();
+  if(origem.length<5){message('Informe a fonte independente de onde vieram os dados.');return}
+  if(/google\s*maps|maps\.google|goo\.gl\/maps/i.test(origem)){message('Não é possível importar listagens obtidas do Google Maps.');return}
+  const confirmed=confirm('Importar '+bulkParsed.length+' empresas revisadas ao CRM? Nenhuma mensagem será enviada.');
+  if(!confirmed)return;
+  $('bulkSubmit').disabled=true;
+  try{
+    const r=await api('/api/admin/prospeccao/action',{action:'bulk_import',origem,empresas:bulkParsed});
+    message('Importação concluída: '+r.cadastrados+' cadastradas, '+r.duplicados+' duplicadas, '+r.linhas_invalidas.length+' inválidas. Nenhuma mensagem enviada.');
+    if(!r.linhas_invalidas.length){$('bulkText').value='';bulkParsed=[];$('bulkPreview').textContent='Importação concluída.'}
+    await refresh();
+  }catch(e){message(e.message)}finally{$('bulkSubmit').disabled=!bulkParsed.length}
 }
 
 refresh();</script></html>

@@ -1,0 +1,33 @@
+name: WhatsApp Gupshup pilot tests
+on:
+  pull_request:
+    branches: [stayvision-v333-publicacao]
+    paths:
+      - 'gupshup_bridge.py'
+      - 'whatsapp_ai_atendimento.py'
+      - 'web_public.py'
+      - 'tests/test_gupshup_bridge.py'
+      - 'tests/test_whatsapp_ai_atendimento.py'
+      - '.github/workflows/whatsapp-pilot-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+      - name: Python runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Static syntax compilation
+        run: python -m py_compile whatsapp_ai_atendimento.py gupshup_bridge.py web_public.py tests/test_whatsapp_ai_atendimento.py tests/test_gupshup_bridge.py
+      - name: Webhook and AI safety checks
+        run: |
+          python -m unittest discover -s tests -p 'test_whatsapp_ai_atendimento.py' -v
+          python -m unittest discover -s tests -p 'test_gupshup_bridge.py' -v

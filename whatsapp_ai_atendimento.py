@@ -274,13 +274,11 @@ def start_background():
 def admin_status(h):
     from admin_panel import authorized
     if not authorized(h):return h._send('{"error":"Sem autorizacao"}',401)
-    if not enabled() or not _configured():
-        return h._send(json.dumps({"ativo":False,"configurado":_configured(),
-             "respostas_automaticas":enabled()}))
     with contextlib.closing(_db()) as db:
         stats=[dict(r) for r in db.execute("""SELECT estado,COUNT(*) quantidade
              FROM wa_chat WHERE direcao='IN' GROUP BY estado""")]
         recent=[dict(r) for r in db.execute("""SELECT telefone,direcao,texto,estado,criado
              FROM wa_chat ORDER BY criado DESC LIMIT 20""")]
-    return h._send(json.dumps({"ativo":True,"estados":stats,"recentes":recent},
-                              ensure_ascii=False))
+    return h._send(json.dumps({"ativo":enabled() and _configured(),
+             "configurado":_configured(),"respostas_automaticas":enabled(),
+             "estados":stats,"recentes":recent},ensure_ascii=False))

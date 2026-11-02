@@ -74,6 +74,12 @@ class PublicHandler(LocalServer):
     def do_GET(self):
         p=urlsplit(self.path).path
         if p!='/health' and not self._origin_host_ok():return self._bad(421)
+        if p=='/prospeccao':
+            if not self._admin():return self._bad(401)
+            return self._send((Path(__file__).parent/'prospeccao.html').read_bytes(),mime='text/html; charset=utf-8')
+        if p=='/api/admin/prospeccao/list':
+            from prospection import list_leads
+            return list_leads(self)
         if p=='/api/admin/fal-balance':
             from fal_balance import admin_balance
             return admin_balance(self)
@@ -101,6 +107,12 @@ class PublicHandler(LocalServer):
     def do_POST(self):
         p=urlsplit(self.path).path
         if not self._origin_host_ok():return self._bad(421)
+        if p=='/api/admin/prospeccao/action':
+            from prospection import change_lead
+            return change_lead(self)
+        if p=='/api/admin/prospeccao/maps-search':
+            from prospection import maps_search
+            return maps_search(self)
         if (m:=re.fullmatch(r'/api/admin/orders/(pedido-[0-9a-f]{16})/tracking-link',p)):
             from admin_panel import tracking_link
             return tracking_link(self,m.group(1))

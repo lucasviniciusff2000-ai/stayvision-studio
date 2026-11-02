@@ -8,6 +8,13 @@
   <link rel="stylesheet" href="/assets/admin_v39.css">
   <link rel="stylesheet" href="/assets/admin_finance_v323.css">
   <script src="/assets/admin_v38.js" defer></script>
+<style>
+.fal-credit-control{display:inline-flex;align-items:center;gap:7px;background:#232528;color:#f7f2e9;border:1px solid #68513c;border-radius:9px;padding:8px 10px;cursor:pointer;white-space:nowrap;font-size:12px}
+.fal-credit-control strong{font-size:12px;color:#ffac60}
+.fal-credit-control:hover{border-color:#ff8b23}
+.fal-credit-control:disabled{opacity:.7;cursor:wait}
+@media(max-width:560px){.fal-credit-control{padding:8px 7px;gap:5px;font-size:11px}}
+</style>
 </head>
 <body>
 <section id="loginview" class="login-view">
@@ -46,7 +53,7 @@
   <div class="workspace">
     <header class="toolbar">
       <div class="toolbar-search"><span class="search-icon">⌕</span><input id="globalSearch" aria-label="Busca geral" placeholder="Buscar pedidos, clientes ou @Instagram..."><span class="kbd">Ctrl + K</span></div>
-      <div class="toolbar-right"><span class="operator-status"><i class="tiny-dot green-dot"></i> Operador ativo</span><button id="logout" class="btn ghost small-btn" type="button">Sair</button><a href="/comprar" class="btn primary new-order">＋ Novo pedido</a></div>
+      <div class="toolbar-right"><button type="button" class="fal-credit-control" id="falBalanceButton" title="Consultar saldo fal.ai (somente leitura)"><span>fal.ai</span> <strong id="falBalanceValue">US$ —</strong> <span aria-hidden="true">↻</span></button><span class="operator-status"><i class="tiny-dot green-dot"></i> Operador ativo</span><button id="logout" class="btn ghost small-btn" type="button">Sair</button><a href="/comprar" class="btn primary new-order">＋ Novo pedido</a></div>
     </header>
     <main class="main">
       <div class="page-heading"><h1 id="pageTitle">Painel administrativo</h1><p id="pageSubtitle">Centro de operações da StayVision Business. Gerencie pedidos, pagamentos, produção, revisão e entrega em um só lugar.</p></div>

@@ -74,6 +74,9 @@ class PublicHandler(LocalServer):
     def do_GET(self):
         p=urlsplit(self.path).path
         if p!='/health' and not self._origin_host_ok():return self._bad(421)
+        if p=='/api/admin/fal-balance':
+            from fal_balance import admin_balance
+            return admin_balance(self)
         if p=='/piloto-r1':
             if not self._admin():return self._bad(401)
             if os.getenv('SV_PILOT_R1_ENABLED')!='1':return self._bad(404)

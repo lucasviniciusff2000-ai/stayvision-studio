@@ -66,6 +66,10 @@ def _tel(x):
     if not x:return ""
     digits=re.sub(r"\D","",x)
     if len(digits)<10 or len(digits)>13:raise ValueError("Informe telefone com DDD.")
+    # Links wa.me e API Cloud exigem DDI; normalizamos números brasileiros.
+    if len(digits) in (10,11):digits="55"+digits
+    if not digits.startswith("55") or len(digits) not in (12,13):
+        raise ValueError("Informe um telefone brasileiro com DDD.")
     return digits
 
 def _event(db,ident,kind,details=""):
@@ -89,7 +93,8 @@ def list_leads(h):
             for k in ("whatsapp_ok","ligacao_ok","bloqueado"):row[k]=bool(row[k])
         return _reply(h,{"ok":True,"leads":data,"events":events,
                 "maps_enabled":bool(os.getenv("GOOGLE_PLACES_API_KEY")),
-                "auto_messages":False,"auto_calls":False})
+                "auto_messages":False,"auto_calls":False,
+                "whatsapp_api_connected":bool(os.getenv("SV_WA_CLOUD_TOKEN") and os.getenv("SV_WA_PHONE_NUMBER_ID") and os.getenv("SV_WA_TEMPLATE_NAME"))})
     except PermissionError:return _reply(h,{"error":"Faça login no painel."},401)
     except Exception:return _reply(h,{"error":"Erro ao consultar CRM."},500)
 
@@ -109,10 +114,13 @@ def change_lead(h):
                 website=_clean(p.get("website",""),250)
                 notas=_clean(p.get("notas",""),650)
                 prioridade=int(p.get("prioridade",0))
-                if not nome or not cidade or not origem:raise ValueError("Informe empresa, cidade e origem independente dos dados.")
+                if not nome or not origem:raise ValueError("Informe empresa e origem independente dos dados.")
+                if not cidade:cidade="Não informada"
                 if prioridade not in (0,1,2):raise ValueError("Prioridade inválida.")
                 if telefone and db.execute("SELECT 1 FROM leads WHERE telefone=?",(telefone,)).fetchone():
                     raise ValueError("Telefone já cadastrado.")
+                if db.execute("SELECT 1 FROM leads WHERE lower(nome)=lower(?) AND telefone=?",(nome,telefone)).fetchone():
+                    raise ValueError("Empresa já cadastrada.")
                 ident=secrets.token_hex(8)
                 now=_now()
                 db.execute("""INSERT INTO leads

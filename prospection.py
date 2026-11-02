@@ -194,8 +194,47 @@ def maps_search(h):
         try:
             with urllib.request.urlopen(req,timeout=10) as resp:
                 result=json.loads(resp.read(80000))
-        except (urllib.error.URLError,TimeoutError):
-            return _reply(h,{"error":"Busca indisponível. Verifique a chave Places e o faturamento Google."},502)
+        except urllib.error.HTTPError as ex:
+            # HTTPError também é URLError. Capturar antes permite mostrar a causa
+            # sem retornar a resposta bruta do Google (que pode conter metadados).
+            code=int(ex.code)
+            body={}
+            try:
+                body=json.loads(ex.read(8192).decode("utf-8","replace"))
+            except (ValueError,UnicodeError,TypeError):
+                pass
+            details=body.get("error",{}) if isinstance(body,dict) else {}
+            if not isinstance(details,dict):details={}
+            reason=""
+            for item in details.get("details",[]):
+                if isinstance(item,dict) and isinstance(item.get("reason"),str):
+                    reason=item["reason"][:72]
+                    break
+            message=str(details.get("message","")).lower()
+            if "billing" in message or "faturamento" in message or reason in ("BILLING_DISABLED","BILLING_NOT_ENABLED"):
+                hint="Ative o faturamento no projeto Google Cloud ao qual a chave pertence."
+            elif "referer" in message or "referrer" in message or "website restriction" in message or reason in ("API_KEY_HTTP_REFERRER_BLOCKED",):
+                hint="A chave está restrita a sites. Para a Railway, use chave de servidor sem restrição de referenciador."
+            elif "api key" in message and ("invalid" in message or "not valid" in message or "expired" in message) or reason in ("API_KEY_INVALID","API_KEY_EXPIRED"):
+                hint="A chave é inválida. Confira se foi copiada corretamente na Railway."
+            elif "not enabled" in message or "has not been used" in message or "disabled" in message or reason in ("SERVICE_DISABLED",):
+                hint="Ative Places API (New) no mesmo projeto Google Cloud da chave."
+            elif "blocked" in message or "permission" in message or reason.startswith("API_KEY_"):
+                hint="Confira as restrições da chave: ela deve permitir Places API (New), sem restrição de site."
+            elif code==429 or reason in ("RATE_LIMIT_EXCEEDED","QUOTA_EXCEEDED"):
+                hint="A cota ou limite de uso Google Places foi atingido. Confira Quotas no Google Cloud."
+            elif code==400:
+                hint="O Google rejeitou os parâmetros da consulta. Verifique a configuração da API."
+            else:
+                hint="Confira se Places API (New) e o faturamento estão ativos no projeto da chave."
+            safe_reason=reason if re.fullmatch(r"[A-Z][A-Z0-9_]{1,71}",reason) else str(details.get("status",""))[:45]
+            if not re.fullmatch(r"[A-Z][A-Z0-9_]{1,44}",safe_reason):safe_reason="DESCONHECIDO"
+            print("[PLACES] Google respondeu HTTP",code,"motivo",safe_reason,flush=True)
+            return _reply(h,{"error":hint+" (Google HTTP "+str(code)+"; motivo "+safe_reason+")",
+                             "google_http":code,"google_reason":safe_reason},502)
+        except (urllib.error.URLError,TimeoutError) as ex:
+            print("[PLACES] Falha de transporte",type(ex).__name__,flush=True)
+            return _reply(h,{"error":"Falha de conexão entre a Railway e a API Places. Verifique a rede ou tente novamente."},502)
         out=[]
         for place in (result.get("places") or [])[:10]:
             if not isinstance(place,dict):continue

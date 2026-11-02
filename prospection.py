@@ -104,6 +104,41 @@ def change_lead(h):
         p=_body(h)
         action=_clean(p.get("action",""),30)
         with _LOCK,contextlib.closing(_db()) as db,db:
+            if action=="bulk_import":
+                batch=p.get("empresas",[])
+                source=_clean(p.get("origem",""),180)
+                if not isinstance(batch,list) or not 1<=len(batch)<=50:
+                    raise ValueError("Envie de 1 a 50 empresas por importação.")
+                if len(source)<5:
+                    raise ValueError("Informe a fonte independente dos contatos.")
+                if re.search(r"google\\s*maps|maps\\.google|goo\\.gl/maps",source,re.I):
+                    raise ValueError("Não é permitido importar listas obtidas do Google Maps.")
+                created=0;duplicates=0;invalid=[]
+                now=_now()
+                for ix,item in enumerate(batch,1):
+                    try:
+                        if not isinstance(item,dict):raise ValueError()
+                        nome=_clean(item.get("nome",""),120)
+                        telefone=_tel(item.get("telefone",""))
+                        website=_clean(item.get("website",""),250)
+                        instagram=_clean(item.get("instagram",""),120)
+                        cidade=_clean(item.get("cidade",""),90) or "Não informada"
+                        categoria=_clean(item.get("categoria","Alimentação"),50) or "Outros"
+                        if not nome or not telefone:raise ValueError()
+                        existing=db.execute("SELECT 1 FROM leads WHERE telefone=? OR (lower(nome)=lower(?) AND cidade=?) LIMIT 1",(telefone,nome,cidade)).fetchone()
+                        if existing:duplicates+=1;continue
+                        ident=secrets.token_hex(8)
+                        db.execute("""INSERT INTO leads
+                            (id,nome,cidade,categoria,telefone,instagram,website,origem,notas,prioridade,criado,atualizado)
+                            VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                            (ident,nome,cidade,categoria,telefone,instagram,website,source,"",0,now,now))
+                        _event(db,ident,"CRIADO","Importação revisada pelo operador; origem independente")
+                        created+=1
+                    except (ValueError,TypeError):
+                        invalid.append(ix)
+                return _reply(h,{"ok":True,"cadastrados":created,
+                    "duplicados":duplicates,"linhas_invalidas":invalid,
+                    "mensagens_enviadas":0})
             if action=="create":
                 nome=_clean(p.get("nome",""),120)
                 cidade=_clean(p.get("cidade",""),90)

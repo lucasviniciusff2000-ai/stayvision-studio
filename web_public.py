@@ -75,7 +75,9 @@ class PublicHandler(LocalServer):
         p=urlsplit(self.path).path
         if p!='/health' and not self._origin_host_ok():return self._bad(421)
         if p=='/prospeccao':
-            if not self._admin():return self._bad(401)
+            # Abriu a central sem sessao (ex.: apos redeploy)? Redirecione ao login.
+            # Nao exponha o CRM sem autenticacao nem relaxe as regras das APIs.
+            if not self._admin():return self._send('',302,extra={'Location':'/painel'})
             return self._send((Path(__file__).parent/'prospeccao.html').read_bytes(),mime='text/html; charset=utf-8')
         if p=='/api/admin/prospeccao/list':
             from prospection import list_leads

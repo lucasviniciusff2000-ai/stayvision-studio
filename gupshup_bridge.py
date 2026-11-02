@@ -45,7 +45,8 @@ def webhook(h):
             return h._send("",200,mime="text/plain")
         now=int(time.time())
         counts=dict(changes=0,text=0,nontext=0,stored=0,duplicate=0,
-                    outside_test=0,invalid_message=0,stale=0,source_diff=0)
+                    outside_test=0,invalid_message=0,stale=0,source_diff=0,
+                    receipt_updated=0,receipt_unmatched=0)
         source=os.getenv("SV_GS_SOURCE","")
         for entry in (payload.get("entry") or [])[:10]:
             if not isinstance(entry,dict):continue
@@ -59,6 +60,44 @@ def webhook(h):
                     display=re.sub(r"\D","",str(metadata.get("display_phone_number","")))
                     if display and source and display!=source:
                         counts["source_diff"]+=1
+                # Delivery receipts are asynchronous and are linked to existing
+                # outbound requests by Gupshup's gs_id, not by the user's phone.
+                for st in (val.get("statuses") or [])[:30]:
+                    if not isinstance(st,dict):continue
+                    event=str(st.get("status","")).lower()
+                    if event not in ("enqueued","sent","delivered","read","failed"):
+                        continue
+                    counts["receipt_"+event]=counts.get("receipt_"+event,0)+1
+                    gs_id=str(st.get("gs_id") or (st.get("id") if event in ("enqueued","failed") else "") or "")
+                    if not re.fullmatch(r"[a-zA-Z0-9_.:=/+-]{10,250}",gs_id):
+                        counts["receipt_unmatched"]+=1
+                        continue
+                    errors=st.get("errors") or []
+                    code=""
+                    if event=="failed" and isinstance(errors,list) and errors and isinstance(errors[0],dict):
+                        raw_code=str(errors[0].get("code",""))
+                        if re.fullmatch(r"\d{1,6}",raw_code):
+                            code=raw_code
+                            counts["fail_code_"+code]=counts.get("fail_code_"+code,0)+1
+                    target=("GS_FAILED"+("_"+code if code else "") if event=="failed"
+                            else "GS_"+event.upper())
+                    order={"ACEITO_GUPSHUP":0,"GS_ENQUEUED":1,"GS_SENT":2,
+                           "GS_DELIVERED":3,"GS_READ":4}
+                    with _LOCK,contextlib.closing(_db()) as db,db:
+                        existing=db.execute("""SELECT estado FROM wa_chat
+                            WHERE direcao='OUT' AND meta_id=?""",(gs_id,)).fetchone()
+                        if existing:
+                            old=existing["estado"]
+                            if (old.startswith("GS_FAILED") or
+                                (event=="failed" and old in ("GS_DELIVERED","GS_READ")) or
+                                (event!="failed" and
+                                 order.get(old,-1)>=order.get(target,0))):
+                                continue
+                            db.execute("""UPDATE wa_chat SET estado=?
+                                WHERE direcao='OUT' AND meta_id=?""",(target,gs_id))
+                            counts["receipt_updated"]+=1
+                        else:
+                            counts["receipt_unmatched"]+=1
                 # gs_app_id + header privado autenticam a conta; display_phone_number
                 # pode vir mascarado/normalizado e nao pode bloquear o piloto.
                 for m in (val.get("messages") or [])[:20]:

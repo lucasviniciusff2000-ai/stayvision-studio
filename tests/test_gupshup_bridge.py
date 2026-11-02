@@ -86,6 +86,46 @@ class GupshupTest(unittest.TestCase):
         with contextlib.closing(wa._db()) as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM wa_chat").fetchone()[0],0)
 
+    def test_delivery_receipt_updates_existing_outbound(self):
+        gs_id="4ac9aaf0-22d4-4716-8895-21876bb4ce52"
+        now=int(time.time())
+        with contextlib.closing(wa._db()) as db,db:
+            db.execute("""INSERT INTO wa_chat
+                (id,telefone,direcao,texto,estado,timestamp,criado,meta_id)
+                VALUES(?,?,'OUT',?,'ACEITO_GUPSHUP',?,?,?)""",
+                (gs_id,"5547999999999","teste",now,now,gs_id))
+        for status in ("enqueued","sent","delivered"):
+            payload={"object":"whatsapp_business_account",
+                     "gs_app_id":os.getenv("SV_GS_APP_ID"),
+                     "entry":[{"changes":[{"field":"messages",
+                        "value":{"statuses":[{"status":status,"gs_id":gs_id}]}}]}]}
+            h=Handler(json.dumps(payload).encode(),self.secret)
+            bridge.webhook(h)
+            self.assertEqual(h.status,200)
+        with contextlib.closing(wa._db()) as db:
+            self.assertEqual(db.execute("""SELECT estado FROM wa_chat
+                WHERE id=?""",(gs_id,)).fetchone()[0],"GS_DELIVERED")
+
+    def test_delivery_failure_stores_only_error_code(self):
+        gs_id="4ac9aaf0-22d4-4716-8895-21876bb4ce53"
+        now=int(time.time())
+        with contextlib.closing(wa._db()) as db,db:
+            db.execute("""INSERT INTO wa_chat
+                (id,telefone,direcao,texto,estado,timestamp,criado,meta_id)
+                VALUES(?,?,'OUT',?,'ACEITO_GUPSHUP',?,?,?)""",
+                (gs_id,"5547999999999","teste",now,now,gs_id))
+        payload={"object":"whatsapp_business_account",
+                 "gs_app_id":os.getenv("SV_GS_APP_ID"),
+                 "entry":[{"changes":[{"field":"messages",
+                 "value":{"statuses":[{"status":"failed","gs_id":gs_id,
+                          "errors":[{"code":131047,"title":"sensitive text"}]}]}}]}]}
+        h=Handler(json.dumps(payload).encode(),self.secret)
+        bridge.webhook(h)
+        self.assertEqual(h.status,200)
+        with contextlib.closing(wa._db()) as db:
+            self.assertEqual(db.execute("""SELECT estado FROM wa_chat
+                WHERE id=?""",(gs_id,)).fetchone()[0],"GS_FAILED_131047")
+
     def test_off_means_no_queued_messages(self):
         os.environ["SV_WA_AUTO_REPLY_ENABLED"]="0"
         h=Handler(self.event(),self.secret)

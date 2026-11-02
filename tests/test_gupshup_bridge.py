@@ -68,6 +68,24 @@ class GupshupTest(unittest.TestCase):
         with contextlib.closing(wa._db()) as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM wa_chat").fetchone()[0],1)
 
+    def test_authenticated_event_with_masked_display_is_received(self):
+        body=json.loads(self.event())
+        body["entry"][0]["changes"][0]["value"]["metadata"]["display_phone_number"]="55****6758"
+        h=Handler(json.dumps(body).encode(),self.secret)
+        bridge.webhook(h)
+        self.assertEqual(h.status,200)
+        with contextlib.closing(wa._db()) as db:
+            self.assertEqual(db.execute("SELECT estado FROM wa_chat").fetchone()[0],"PENDENTE")
+
+    def test_outside_test_phone_never_queued(self):
+        body=json.loads(self.event())
+        body["entry"][0]["changes"][0]["value"]["messages"][0]["from"]="5547888888888"
+        h=Handler(json.dumps(body).encode(),self.secret)
+        bridge.webhook(h)
+        self.assertEqual(h.status,200)
+        with contextlib.closing(wa._db()) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM wa_chat").fetchone()[0],0)
+
     def test_off_means_no_queued_messages(self):
         os.environ["SV_WA_AUTO_REPLY_ENABLED"]="0"
         h=Handler(self.event(),self.secret)

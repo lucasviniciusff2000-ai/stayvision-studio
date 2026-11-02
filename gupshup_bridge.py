@@ -74,7 +74,7 @@ def webhook(h):
                     content=str(content).strip()
                     try:timestamp=int(m.get("timestamp",0))
                     except (ValueError,TypeError):timestamp=-1
-                    if not (re.fullmatch(r"[a-zA-Z0-9_.:=/+\\-]{10,250}",mid)
+                    if not (re.fullmatch(r"[a-zA-Z0-9_.:=/+\-]{10,250}",mid)
                             and re.fullmatch(r"\d{10,15}",phone)
                             and 0<len(content)<=4000):
                         counts["invalid_message"]+=1

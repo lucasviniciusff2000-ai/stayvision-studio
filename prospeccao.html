@@ -54,8 +54,8 @@
 <section class="panel" id="bulkImportPanel">
   <h2>Importar lista pronta — até 50 empresas</h2>
   <p><button type="button" class="secondary" onclick="loadReviewedBatch()">Carregar 15 contatos pesquisados em fontes independentes</button>
-  <button type="button" class="secondary" onclick="loadAdditionalReviewedBatch()">Carregar mais 9 contatos com fontes verificáveis</button></p>
-  <small>Os nove novos contatos foram consultados em canais e diretórios independentes; confirme se o telefone ainda pertence à empresa e se é WhatsApp antes de usar.</small>
+  <button type="button" class="secondary" onclick="loadAdditionalReviewedBatch()">Carregar mais 11 contatos com fontes verificáveis</button></p>
+  <small>Os onze novos contatos foram consultados em canais e diretórios independentes; confirme se o telefone ainda pertence à empresa e se é WhatsApp antes de usar.</small>
   <details><summary>Ver as fontes dos seis contatos adicionais</summary><div id="additionalReviewedSources" class="s"></div></details>
   <small>Os 15 contatos são uma prévia para conferência: alguns são telefones fixos e não há confirmação de que todos tenham WhatsApp. Não importa nem envia mensagens sozinho.</small>
   <details><summary>Ver fontes usadas para conferir os contatos</summary><div id="reviewedSources" class="s"></div></details>
@@ -254,14 +254,14 @@ async function savePrintLeads(){
 
 
 const reviewedBatch = [["PANZ PIZZA","(47) 99967-2285","https://pizzapanz.com.br/"],["Chaplin Restaurante","(47) 3367-0250","https://www.visitebalneariocamboriu.com.br/chaplin-restaurante"],["Arbo Gastrobar","(47) 99954-6768","https://visitebombinhas.blogspot.com/search/label/gastronomia"],["Aquele Burguer","(47) 98928-7448","https://www.solutudo.com.br/empresas/sc/camboriu/lanches%2Blanchonetes?pagina=2"],["Ribs Burger","(47) 99695-8424","https://www.benditoguia.com.br/empresa/ribs-burger-centro-balneario-camboriu-sc"],["Seu Zé Choperia e Hamburgueria","(47) 3170-0263","https://www.secturbc.com.br/turismo/pt-br/guia/gastronomia"],["El Campero Fogo","(47) 99655-6697","https://restaurantguru.com.br/El-Campero-Parrilla-Balneario-Camboriu"],["Alô Burguer Camboriú","(47) 99945-6812","https://restaurantguru.com/Alo-Burguer-Camboriu-Camboriu"],["Artesania Burger","(47) 98853-9214","https://restaurantguru.com.br/Artesania-Burger-Balneario-Camboriu"],["Burger Break","(47) 4108-0400","https://www.cylex.com.br/balneario-camboriu/hamburgueria/"],["Hamburgueria Rony","(47) 98842-9269","https://www.waze.com/live-map/directions/br/sc/hamburgueria-rony?to=place.ChIJyZOAcwDJ2JQR7_UsMsLjkHo"],["LDN smash burguer","(47) 98845-3026","https://restaurantguru.com.br/Smash-burguer-Camboriu"],["dahora lanchonete","(47) 99921-9336","https://restaurantguru.com.br/dahora-lanchonete-Balneario-Camboriu"],["Siri Cascudo Hamburgueria","(47) 99646-2228","https://restaurantguru.com.br/Siri-Cascudo-Burguer-Camboriu"],["Bodega Do Loro","(47) 99648-8536","https://restaurantguru.com.br/Bodega-do-Loro-Camboriu"]];
-const additionalReviewedBatch=[["Mordidela Burger e Grill","(47) 99666-9151","https://linktr.ee/Mordidela_bc"],["D'Billys Burguer & BBQ","(47) 99703-7327","https://restaurantguru.com.br/DBillys-Burguer-and-BBQ-Balneario-Camboriu"],["Buzina Burgers","(11) 98845-7550","https://buzinaburgers.com/contato"],["Big Kahuna","(11) 3051-6268","https://www.bigkahunaburger.com.br/"],["John's Burger","(11) 3854-1746","https://johnsburguer.com.br/"],["Tradi Hamburgueria Vila Nova","(11) 2339-7107","https://www.guiaabraselsp.com.br/hamburgueria-tradi"],["Joakin's Hamburguer","(11) 3168-0030","https://joakins.com.br/"],["Zé do Hamburger","(11) 3868-4884","https://www.zedohamburger.com.br/"],["Paulista Burger","(11) 93354-3201","https://bovinus.com.br/paulista-burger-augusta/"]];
+const additionalReviewedBatch=[["Mordidela Burger e Grill","(47) 99666-9151","https://linktr.ee/Mordidela_bc"],["D'Billys Burguer & BBQ","(47) 99703-7327","https://restaurantguru.com.br/DBillys-Burguer-and-BBQ-Balneario-Camboriu"],["Buzina Burgers","(11) 98845-7550","https://buzinaburgers.com/contato"],["Big Kahuna","(11) 3051-6268","https://www.bigkahunaburger.com.br/"],["John's Burger","(11) 3854-1746","https://johnsburguer.com.br/"],["Tradi Hamburgueria Vila Nova","(11) 2339-7107","https://www.guiaabraselsp.com.br/hamburgueria-tradi"],["Joakin's Hamburguer","(11) 3168-0030","https://joakins.com.br/"],["Zé do Hamburger","(11) 3868-4884","https://www.zedohamburger.com.br/"],["Paulista Burger","(11) 93354-3201","https://bovinus.com.br/paulista-burger-augusta/"],["The Bear Burger","(11) 4114-5962","https://www.guiaabraselsp.com.br/the-bear-burger"],["Jota Hamburgers - Shopping Cidade São Paulo","(11) 2853-0675","https://www.cylex.com.br/sao-paulo/jota-hamburgers---shopping-cidade-s%C3%A3o-paulo-12261121.html"]];
 function loadAdditionalReviewedBatch(){
-  if($('bulkText').value.trim()&&!confirm('Substituir a lista atual pelos nove contatos adicionais?'))return;
+  if($('bulkText').value.trim()&&!confirm('Substituir a lista atual pelos onze contatos adicionais?'))return;
   $('bulkText').value=additionalReviewedBatch.map(r=>r[0]+' | '+r[1]).join('\n');
   $('bulkOrigin').value='Sites oficiais, Linktree do estabelecimento e guias independentes';
   previewBulk();
   $('bulkImportPanel').scrollIntoView({behavior:'smooth',block:'start'});
-  message('Nove empresas adicionais carregadas para sua revisão. Nenhum cadastro ou mensagem foi enviado automaticamente.');
+  message('Onze empresas adicionais carregadas para sua revisão. Nenhum cadastro ou mensagem foi enviado automaticamente.');
 }
 function showAdditionalReviewedSources(){
   const target=$('additionalReviewedSources');if(!target)return;

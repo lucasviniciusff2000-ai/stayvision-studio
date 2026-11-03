@@ -237,6 +237,27 @@ def _process(item):
             WHERE telefone=? AND criado>? ORDER BY criado,id DESC LIMIT 8""",
             (phone,now-7*86400))]
     txt=item["texto"]
+    # Pedidos de descadastro nao devem acionar IA, imagens nem respostas
+    # comerciais. Registrar o bloqueio antes de qualquer outra acao.
+    opt_out=bool(re.search(
+        r"\\b(sair|pare|parar|cancele|cancelar|remova|remover|"
+        r"descadastrar|descadastro|nao quero|não quero|sem interesse|"
+        r"nao tenho interesse|não tenho interesse|nao me mande|"
+        r"não me mande|nao envie|não envie)\\b",txt,re.I))
+    if opt_out:
+        with _LOCK,contextlib.closing(_db()) as db,db:
+            db.execute("INSERT OR IGNORE INTO wa_pausas(telefone,criado) VALUES(?,?)",
+                       (phone,now))
+        try:
+            from prospection import _db as crm_db
+            with contextlib.closing(crm_db()) as crm,crm:
+                crm.execute("""UPDATE leads SET bloqueado=1,whatsapp_ok=0,
+                    atualizado=? WHERE telefone=?""",
+                    (dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),phone))
+        except Exception:
+            # A pausa local continua ativa mesmo se o CRM estiver indisponivel.
+            pass
+        return "DESCADASTRADO",""
     # A confirmacao de interesse no portfolio nao deve gerar uma nova pergunta.
     # O site e o unico destino de portfolio confirmado neste fluxo.
     prior_out=next((r["texto"] for r in reversed(history)

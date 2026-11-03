@@ -168,3 +168,32 @@ def send_text(phone,answer):
     if result.get("status")!="submitted" or not result.get("messageId"):
         raise RuntimeError("Gupshup nao confirmou envio. Confira seu painel.")
     return str(result["messageId"])[:250]
+
+def send_image(phone, image_url, caption=""):
+    """Envia imagem de portfolio por URL HTTPS publica via Gupshup."""
+    from urllib.parse import urlsplit
+    u=urlsplit(image_url)
+    if u.scheme!="https" or not u.netloc or u.username or u.password:
+        raise ValueError("URL publica HTTPS de imagem invalida")
+    token=os.getenv("SV_GS_API_KEY","")
+    source=os.getenv("SV_GS_SOURCE","")
+    app=os.getenv("SV_GS_APP_NAME","StayVisionBusiness")
+    if (not token or not re.fullmatch(r"\d{10,15}",source)
+        or not re.fullmatch(r"\d{10,15}",phone)
+        or not re.fullmatch(r"[A-Za-z0-9_-]{3,120}",app)):
+        raise ValueError("Configuracao Gupshup invalida")
+    fields={
+        "channel":"whatsapp","source":source,"destination":phone,"src.name":app,
+        "message":json.dumps({"type":"image","originalUrl":image_url,
+                              "caption":caption[:500]},ensure_ascii=False)
+    }
+    req=urllib.request.Request(
+        "https://api.gupshup.io/wa/api/v1/msg",
+        data=urllib.parse.urlencode(fields).encode("utf-8"),
+        headers={"apikey":token,"Content-Type":"application/x-www-form-urlencoded",
+                 "Accept":"application/json"},method="POST")
+    with urllib.request.urlopen(req,timeout=15) as response:
+        result=json.load(response)
+    if result.get("status")!="submitted" or not result.get("messageId"):
+        raise RuntimeError("Gupshup nao confirmou envio de imagem")
+    return str(result["messageId"])[:250]

@@ -106,6 +106,45 @@ def list_leads(h):
     except PermissionError:return _reply(h,{"error":"Faça login no painel."},401)
     except Exception:return _reply(h,{"error":"Erro ao consultar CRM."},500)
 
+def whatsapp_queue_preview(h):
+    """Visao da fila; acesso exclusivo do administrador."""
+    try:
+        _auth(h)
+        from prospeccao_wa_queue import preview
+        with contextlib.closing(_db()) as db:
+            path=db.execute("PRAGMA database_list").fetchone()[2]
+        return _reply(h,{"ok":True,"fila":preview(path)})
+    except PermissionError:
+        return _reply(h,{"error":"Login necessario."},401)
+    except Exception:
+        return _reply(h,{"error":"Nao foi possivel consultar a fila."},500)
+
+
+def whatsapp_queue_prepare(h):
+    """Prepara contatos autorizados, sem iniciar disparos."""
+    try:
+        _auth(h,True)
+        payload=_body(h)
+        if payload.get("confirmar_preparacao") is not True:
+            raise ValueError("Confirme a preparacao da fila.")
+        from prospeccao_wa_queue import prepare
+        with _LOCK,contextlib.closing(_db()) as db:
+            path=db.execute("PRAGMA database_list").fetchone()[2]
+            contacts=[{"lead_id":r["id"],"telefone":r["telefone"],
+                       "nome":r["nome"],"opt_in":bool(r["whatsapp_ok"])
+                       and not bool(r["bloqueado"])
+                       and len((r["fonte_consentimento"] or "").strip())>=12}
+                      for r in db.execute("SELECT * FROM leads ORDER BY criado ASC")]
+        result=prepare(path,contacts)
+        return _reply(h,{"ok":True,**result,"envio_ativo":False})
+    except PermissionError:
+        return _reply(h,{"error":"Login necessario."},401)
+    except (ValueError,TypeError) as e:
+        return _reply(h,{"error":str(e)},400)
+    except Exception:
+        return _reply(h,{"error":"Falha ao preparar a fila."},500)
+
+
 def change_lead(h):
     try:
         _auth(h,True)

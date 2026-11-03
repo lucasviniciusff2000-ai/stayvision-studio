@@ -130,7 +130,7 @@ async function contact(id,tipo){
     if(!l.whatsapp_ok&&!confirm('Este contato não tem consentimento registrado no CRM. Abrir a conversa não autoriza envio comercial. Continue apenas se houver permissão para contatá-lo. Abrir WhatsApp?'))return;
     const phone=String(l.telefone).replace(/\\D/g,'');
     if(!/^\\d{10,15}$/.test(phone)){message('Telefone inválido.');return}
-    window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(leadMessageDraft(l)),'_blank','noopener,noreferrer');
+    window.location.assign('https://wa.me/'+phone+'?text='+encodeURIComponent(leadMessageDraft(l)));
     message('Conversa aberta para '+l.nome+'. O envio é manual; marque CONTATADO somente depois de enviar.');
     return;
   }

@@ -80,6 +80,11 @@ class PublicHandler(LocalServer):
         if p=='/api/admin/whatsapp/status':
             from whatsapp_ai_atendimento import admin_status
             return admin_status(self)
+        if p=='/assets/stayvision_portfolio.jpg':
+            asset=Path(__file__).parent/'stayvision_portfolio.jpg'
+            if not asset.is_file():return self._bad(404)
+            return self._send(asset.read_bytes(),mime='image/jpeg',
+                              extra={'Cache-Control':'public, max-age=3600'})
         if p=='/assets/stayvision_antes_depois.jpg':
             # Arte aprovada enviada pelo administrador, persistida em volume Railway.
             from prospection_artwork_upload import artwork_path

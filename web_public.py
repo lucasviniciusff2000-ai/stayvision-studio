@@ -98,6 +98,9 @@ class PublicHandler(LocalServer):
             # Nao exponha o CRM sem autenticacao nem relaxe as regras das APIs.
             if not self._admin():return self._send('',302,extra={'Location':'/painel'})
             return self._send((Path(__file__).parent/'prospeccao.html').read_bytes(),mime='text/html; charset=utf-8')
+        if p=='/api/admin/prospeccao/fila-whatsapp':
+            from prospection import whatsapp_queue_preview
+            return whatsapp_queue_preview(self)
         if p=='/api/admin/prospeccao/list':
             from prospection import list_leads
             return list_leads(self)
@@ -134,6 +137,9 @@ class PublicHandler(LocalServer):
         if p=='/api/whatsapp/webhook':
             from whatsapp_ai_atendimento import webhook
             return webhook(self)
+        if p=='/api/admin/prospeccao/preparar-fila-whatsapp':
+            from prospection import whatsapp_queue_prepare
+            return whatsapp_queue_prepare(self)
         if p=='/api/admin/prospeccao/action':
             from prospection import change_lead
             return change_lead(self)

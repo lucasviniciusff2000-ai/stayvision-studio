@@ -258,7 +258,15 @@ def _process(item):
                            if portfolio_requested else _gemini(list(reversed(history)),txt)))
     if not enabled():return "DESATIVADO",""
     if int(time.time())-item["timestamp"]>=86400:return "EXPIRADO",""
-    mid=_send_text(phone,answer)
+    image_url=os.getenv("SV_WA_PORTFOLIO_IMAGE_URL","").strip()
+    if (portfolio_requested and image_url
+            and os.getenv("SV_WA_PROVIDER")=="gupshup"):
+        from gupshup_bridge import send_image
+        # Uma unica mensagem de imagem, com legenda curta, evita duplicidade.
+        answer="Confira nosso portfólio StayVision Business! ✨"
+        mid=send_image(phone,image_url,answer)
+    else:
+        mid=_send_text(phone,answer)
     status="ACEITO_GUPSHUP" if os.getenv("SV_WA_PROVIDER")=="gupshup" else "ACEITO_META"
     with _LOCK,contextlib.closing(_db()) as db,db:
         db.execute("""INSERT OR IGNORE INTO wa_chat
